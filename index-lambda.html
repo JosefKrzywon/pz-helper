@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PZ Skill Books Checklist (AWS Sync)</title>
+<style>
+  :root {
+    --bg: #14171a;
+    --card: #1f2428;
+    --accent: #7fbf3f;
+    --accent-dim: #3d5a20;
+    --text: #e8e8e8;
+    --text-dim: #9a9a9a;
+    --border: #2c3237;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 16px;
+    padding-bottom: 60px;
+  }
+  h1 {
+    font-size: 1.3em;
+    margin: 0 0 4px 0;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.85em;
+    margin-bottom: 12px;
+  }
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: var(--card);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .sync-dot.ok { background: var(--accent); }
+  .sync-dot.error { background: #c97a7a; }
+  .sync-dot.syncing { background: #f0ad4e; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .sync-status button {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    cursor: pointer;
+  }
+  .sync-status button:hover { border-color: var(--accent); color: var(--accent); }
+  .progress-bar-wrap {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+  .progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85em;
+    margin-bottom: 6px;
+  }
+  .progress-track {
+    height: 8px;
+    background: #2a2f33;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.2s;
+  }
+  .search-wrap {
+    margin-bottom: 12px;
+  }
+  #search, #crop-search {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 1em;
+  }
+  .skill-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .skill-name { font-weight: 600; font-size: 1em; }
+  .skill-count {
+    font-size: 0.8em;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .skill-count.complete { color: var(--accent); }
+  .chevron { transition: transform 0.2s; font-size: 0.8em; }
+  .skill-card.open .chevron { transform: rotate(90deg); }
+  .volumes { display: none; padding: 0 14px 12px 14px; }
+  .skill-card.open .volumes { display: block; }
+  .volume-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+  }
+  .volume-row label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    cursor: pointer;
+  }
+  .volume-row input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .volume-label { font-size: 0.9em; }
+  .volume-label .checked {
+    color: var(--accent);
+    text-decoration: line-through;
+    text-decoration-color: var(--accent-dim);
+  }
+  .category-title {
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin: 18px 0 8px 2px;
+  }
+  .sort-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .sort-btn {
+    flex: 1;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-dim);
+    font-size: 0.85em;
+    text-align: center;
+    cursor: pointer;
+  }
+  .sort-btn.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .reset-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 20px;
+    background: transparent;
+    border: 1px solid #7a3030;
+    color: #c97a7a;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+  }
+  .note {
+    font-size: 0.75em;
+    color: var(--text-dim);
+    margin-top: 14px;
+    text-align: center;
+  }
+  .note a { color: var(--accent); }
+  .section-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 28px 0 10px 0;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+  .month-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .month-chip {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-dim);
+    font-size: 0.82em;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .month-chip.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .crop-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .crop-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .crop-name { font-weight: 600; font-size: 0.98em; }
+  .crop-type {
+    font-size: 0.72em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .crop-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 0.8em;
+    color: var(--text-dim);
+  }
+  .crop-meta b { color: var(--text); font-weight: 500; }
+  .crop-hardy { color: var(--accent); }
+  .crop-count { font-size: 0.8em; color: var(--text-dim); margin-bottom: 10px; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 400px;
+    width: 100%;
+  }
+  .modal h2 { margin: 0 0 8px 0; font-size: 1.1em; }
+  .modal p { font-size: 0.85em; color: var(--text-dim); margin: 0 0 16px 0; }
+  .modal label { display: block; font-size: 0.85em; margin-bottom: 6px; color: var(--text); }
+  .modal input[type="text"], .modal input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95em;
+    margin-bottom: 14px;
+  }
+  .modal-actions { display: flex; gap: 10px; margin-top: 6px; }
+  .modal-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    color: #111;
+    font-weight: 600;
+  }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .modal .error-msg {
+    color: #c97a7a;
+    font-size: 0.8em;
+    margin-top: -8px;
+    margin-bottom: 12px;
+  }
+  .modal .help-text {
+    font-size: 0.75em;
+    color: var(--text-dim);
+    margin-top: -10px;
+    margin-bottom: 14px;
+  }
+  .modal details {
+    margin-bottom: 14px;
+  }
+  .modal summary {
+    font-size: 0.85em;
+    color: var(--text-dim);
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Login Modal -->
+<div class="modal-overlay" id="login-modal">
+  <div class="modal">
+    <h2>🔐 Login</h2>
+    <p>Log in to save your progress in the cloud.</p>
+    
+    <label for="login-user">Username</label>
+    <input type="text" id="login-user" placeholder="Username">
+    
+    <label for="login-pass">Password</label>
+    <input type="password" id="login-pass" placeholder="Password">
+    
+    <details>
+      <summary>⚙️ Change API URL (for self-hosting)</summary>
+      <label for="api-url">Lambda Function URL</label>
+      <input type="text" id="api-url" placeholder="https://xxxxxxx.lambda-url.eu-central-1.on.aws/">
+      <div class="help-text">
+        The URL of your own Lambda function. See <a href="https://github.com/YOUR-USERNAME/pz-skillbooks/blob/main/docs/setup-aws.md" target="_blank" style="color:var(--accent)">Setup Guide</a>.
+      </div>
+    </details>
+    
+    <div class="error-msg" id="login-error" style="display:none"></div>
+    
+    <div class="modal-actions">
+      <button class="btn-secondary" id="skip-login">Local only</button>
+      <button class="btn-primary" id="do-login">Login</button>
+    </div>
+  </div>
+</div>
+
+<h1>📚 Project Zomboid Skill Books</h1>
+<div class="subtitle">Checklist — 24 Skills, 5 Volumes each (I–V)</div>
+
+<div class="sync-status" id="sync-status">
+  <span class="sync-dot" id="sync-dot"></span>
+  <span id="sync-text">Not connected</span>
+  <button id="sync-settings">🔐 Login</button>
+</div>
+
+<div class="progress-bar-wrap">
+  <div class="progress-text">
+    <span id="progress-label">0 / 120 found</span>
+    <span id="progress-percent">0%</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+</div>
+
+<div class="search-wrap">
+  <input type="text" id="search" placeholder="Search skill...">
+</div>
+
+<div class="sort-toggle">
+  <button class="sort-btn active" id="sort-category" data-mode="category">By Category</button>
+  <button class="sort-btn" id="sort-alpha" data-mode="alpha">A–Z</button>
+</div>
+
+<div id="skill-list"></div>
+
+<button class="reset-btn" id="reset-btn">Reset all checkmarks</button>
+<div class="note">Sync via AWS Lambda. <a href="https://github.com/YOUR-USERNAME/pz-skillbooks" target="_blank">Documentation</a></div>
+
+<div class="section-title">🌱 Growing Calendar (Build 42)</div>
+<div class="search-wrap">
+  <input type="text" id="crop-search" placeholder="Search crop...">
+</div>
+<div class="month-chips" id="month-chips"></div>
+<div class="crop-count" id="crop-count"></div>
+<div id="crop-list"></div>
+
+<script>
+/* ========== SKILL DATA ========== */
+const DATA = {
+  "Crafts (full rate)": [
+    "Carpentry", "Cooking", "Electrical", "Welding", "Mechanics",
+    "Tailoring", "Blacksmithing", "Carving", "Knapping", "Glassmaking",
+    "Masonry", "Pottery"
+  ],
+  "Survival (full rate)": [
+    "First Aid", "Fishing", "Trapping", "Foraging", "Tracking",
+    "Agriculture", "Animal Care", "Butchering", "Maintenance"
+  ],
+  "Combat & Firearms (reduced rate)": [
+    "Aiming", "Reloading", "Long Blade"
+  ]
+};
+
+/* ========== STORAGE KEYS ========== */
+const STORAGE_KEY = "pz_skillbook_checklist_v1";
+const AUTH_CONFIG_KEY = "pz_lambda_auth";
+
+/* ========== STATE ========== */
+let state = {};
+let authConfig = null; // { apiUrl, username, password }
+let syncTimeout = null;
+
+/* ========== LAMBDA SYNC ========== */
+function loadAuthConfig() {
+  try {
+    const raw = localStorage.getItem(AUTH_CONFIG_KEY);
+    authConfig = raw ? JSON.parse(raw) : null;
+  } catch { authConfig = null; }
+}
+
+function saveAuthConfig() {
+  if (authConfig) {
+    localStorage.setItem(AUTH_CONFIG_KEY, JSON.stringify(authConfig));
+  } else {
+    localStorage.removeItem(AUTH_CONFIG_KEY);
+  }
+}
+
+function updateSyncStatus(status, text) {
+  const dot = document.getElementById("sync-dot");
+  const txt = document.getElementById("sync-text");
+  const btn = document.getElementById("sync-settings");
+  dot.className = "sync-dot " + status;
+  txt.textContent = text;
+  btn.textContent = authConfig ? "⚙️ Sync" : "🔐 Login";
+}
+
+function authHeaders() {
+  if (!authConfig) return {};
+  // Basic auth: base64(username:password)
+  const creds = btoa(authConfig.username + ":" + authConfig.password);
+  return { "Authorization": `Basic ${creds}` };
+}
+
+async function loadFromLambda() {
+  if (!authConfig?.apiUrl) return false;
+  
+  updateSyncStatus("syncing", "Loading...");
+  try {
+    const res = await fetch(authConfig.apiUrl, {
+      method: "GET",
+      headers: {
+        ...authHeaders(),
+        "Accept": "application/json"
+      }
+    });
+    
+    if (res.status === 401) {
+      throw new Error("Invalid login");
+    }
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    
+    const data = await res.json();
+    if (data.progress) {
+      state = data.progress;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+    updateSyncStatus("ok", `Synced (${authConfig.username})`);
+    return true;
+  } catch (e) {
+    console.error("Load Lambda failed:", e);
+    updateSyncStatus("error", e.message || "Sync error");
+    return false;
+  }
+}
+
+async function saveToLambda() {
+  if (!authConfig?.apiUrl) return;
+  
+  updateSyncStatus("syncing", "Saving...");
+  try {
+    const res = await fetch(authConfig.apiUrl, {
+      method: "POST",
+      headers: {
+        ...authHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ progress: state })
+    });
+    
+    if (res.status === 401) {
+      throw new Error("Invalid login");
+    }
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    
+    updateSyncStatus("ok", `Synced (${authConfig.username})`);
+  } catch (e) {
+    console.error("Save Lambda failed:", e);
+    updateSyncStatus("error", e.message || "Sync error");
+  }
+}
+
+function scheduleSyncSave() {
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    if (authConfig?.apiUrl) {
+      saveToLambda();
+    }
+  }, 1000);
+}
+
+/* ========== LOCAL STORAGE ========== */
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    state = raw ? JSON.parse(raw) : {};
+  } catch { state = {}; }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Save failed", e);
+  }
+  scheduleSyncSave();
+}
+
+/* ========== SKILL HELPERS ========== */
+function volKey(skill, vol) { return skill + "|" + vol; }
+
+function countChecked(skill) {
+  let c = 0;
+  for (let v = 1; v <= 5; v++) {
+    if (state[volKey(skill, v)]) c++;
+  }
+  return c;
+}
+
+function totalChecked() {
+  let c = 0;
+  Object.keys(state).forEach(k => { if (state[k]) c++; });
+  return c;
+}
+
+let sortMode = "category";
+
+function allSkillsFlat() {
+  const all = [];
+  Object.keys(DATA).forEach(cat => DATA[cat].forEach(s => all.push(s)));
+  return all;
+}
+
+/* ========== RENDERING ========== */
+function buildSkillCard(list, skill, roman) {
+  const card = document.createElement("div");
+  card.className = "skill-card";
+  card.dataset.skill = skill.toLowerCase();
+
+  const header = document.createElement("div");
+  header.className = "skill-header";
+
+  const name = document.createElement("div");
+  name.className = "skill-name";
+  name.textContent = skill;
+
+  const countWrap = document.createElement("div");
+  countWrap.className = "skill-count";
+  const checkedCount = countChecked(skill);
+  countWrap.innerHTML = `<span class="count-text">${checkedCount}/5</span><span class="chevron">▶</span>`;
+  if (checkedCount === 5) countWrap.classList.add("complete");
+
+  header.appendChild(name);
+  header.appendChild(countWrap);
+
+  const volumes = document.createElement("div");
+  volumes.className = "volumes";
+
+  for (let v = 1; v <= 5; v++) {
+    const row = document.createElement("div");
+    row.className = "volume-row";
+    const key = volKey(skill, v);
+    const checked = !!state[key];
+
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = checked;
+    cb.addEventListener("change", () => {
+      state[key] = cb.checked;
+      saveState();
+      updateSkillHeader(card, skill);
+      updateProgress();
+    });
+
+    const volLabel = document.createElement("span");
+    volLabel.className = "volume-label";
+    volLabel.innerHTML = checked
+      ? `<span class="checked">Vol. ${roman[v-1]}</span>`
+      : `Vol. ${roman[v-1]}`;
+
+    label.appendChild(cb);
+    label.appendChild(volLabel);
+    row.appendChild(label);
+    volumes.appendChild(row);
+  }
+
+  header.addEventListener("click", () => card.classList.toggle("open"));
+  card.appendChild(header);
+  card.appendChild(volumes);
+  list.appendChild(card);
+}
+
+function render() {
+  const list = document.getElementById("skill-list");
+  list.innerHTML = "";
+  const roman = ["I", "II", "III", "IV", "V"];
+
+  if (sortMode === "alpha") {
+    allSkillsFlat().sort((a, b) => a.localeCompare(b)).forEach(s => buildSkillCard(list, s, roman));
+  } else {
+    Object.keys(DATA).forEach(cat => {
+      const catTitle = document.createElement("div");
+      catTitle.className = "category-title";
+      catTitle.textContent = cat;
+      list.appendChild(catTitle);
+      DATA[cat].forEach(s => buildSkillCard(list, s, roman));
+    });
+  }
+  updateProgress();
+}
+
+function updateSkillHeader(card, skill) {
+  const checkedCount = countChecked(skill);
+  card.querySelector(".count-text").textContent = `${checkedCount}/5`;
+  card.querySelector(".skill-count").classList.toggle("complete", checkedCount === 5);
+
+  card.querySelectorAll(".volume-row").forEach((row, i) => {
+    const checked = !!state[volKey(skill, i + 1)];
+    const romanN = ["I","II","III","IV","V"][i];
+    row.querySelector(".volume-label").innerHTML = checked
+      ? `<span class="checked">Vol. ${romanN}</span>`
+      : `Vol. ${romanN}`;
+  });
+}
+
+function updateProgress() {
+  const total = totalChecked();
+  const percent = Math.round((total / 120) * 100);
+  document.getElementById("progress-label").textContent = `${total} / 120 found`;
+  document.getElementById("progress-percent").textContent = `${percent}%`;
+  document.getElementById("progress-fill").style.width = percent + "%";
+}
+
+/* ========== EVENT HANDLERS ========== */
+document.getElementById("search").addEventListener("input", (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  document.querySelectorAll(".skill-card").forEach(card => {
+    const match = card.dataset.skill.includes(q);
+    card.style.display = match ? "" : "none";
+    if (q && match) card.classList.add("open");
+  });
+});
+
+document.querySelectorAll(".sort-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    sortMode = btn.dataset.mode;
+    document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    render();
+  });
+});
+
+document.getElementById("reset-btn").addEventListener("click", () => {
+  if (confirm("Really reset all checkmarks?")) {
+    state = {};
+    saveState();
+    render();
+  }
+});
+
+/* ========== LOGIN MODAL ========== */
+const modal = document.getElementById("login-modal");
+const errorEl = document.getElementById("login-error");
+
+function showModal() {
+  modal.classList.remove("hidden");
+  document.getElementById("login-user").value = authConfig?.username || "";
+  document.getElementById("login-pass").value = authConfig?.password || "";
+  document.getElementById("api-url").value = authConfig?.apiUrl || "";
+  errorEl.style.display = "none";
+}
+
+function hideModal() {
+  modal.classList.add("hidden");
+}
+
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.style.display = "block";
+}
+
+document.getElementById("skip-login").addEventListener("click", () => {
+  hideModal();
+  updateSyncStatus("", "Local only");
+});
+
+document.getElementById("do-login").addEventListener("click", async () => {
+  const username = document.getElementById("login-user").value.trim();
+  const password = document.getElementById("login-pass").value;
+  const apiUrl = document.getElementById("api-url").value.trim();
+  
+  if (!username || !password) {
+    showError("Username and password are required.");
+    return;
+  }
+  if (!apiUrl) {
+    showError("API URL is required. See setup guide.");
+    return;
+  }
+  
+  errorEl.style.display = "none";
+  
+  // Save config temporarily for test
+  authConfig = { apiUrl, username, password };
+  
+  // Test connection
+  const success = await loadFromLambda();
+  
+  if (success) {
+    saveAuthConfig();
+    render();
+    hideModal();
+  } else {
+    // Don't save on failure
+    authConfig = null;
+    showError("Login failed. Check URL and credentials.");
+  }
+});
+
+document.getElementById("sync-settings").addEventListener("click", showModal);
+
+/* ========== LOGOUT ========== */
+function logout() {
+  authConfig = null;
+  saveAuthConfig();
+  updateSyncStatus("", "Not connected");
+  showModal();
+}
+
+/* ========== CROP CALENDAR ========== */
+const CROPS = [
+  {n:"Barley", t:"Veg", w:30, d:108, p:"Aug–Oct", bad:"Jun–Jul", best:"Sep", hardy:true},
+  {n:"Basil", t:"Herb", w:80, d:60, p:"Mar–May", bad:"Aug–Jan", best:"Mar", hardy:false},
+  {n:"Bell Pepper", t:"Veg", w:70, d:60, p:"Apr–Jun", bad:"Oct–Mar", best:"May", hardy:false},
+  {n:"Black Sage", t:"Herb", w:60, d:60, p:"Mar–Aug", bad:"Oct–Feb", best:"Apr–May", hardy:false},
+  {n:"Broadleaf Plantain", t:"Herb", w:60, d:60, p:"Mar–Aug", bad:"Oct–Feb", best:"Apr", hardy:false},
+  {n:"Broccoli", t:"Veg", w:70, d:60, p:"Feb–Jul", bad:"Sep–Jan", best:"Mar, Jun", hardy:false},
+  {n:"Cabbage", t:"Veg", w:80, d:60, p:"Feb–Jul", bad:"Oct–Jan", best:"Mar, May", hardy:true},
+  {n:"Carrots", t:"Veg", w:30, d:90, p:"Feb–Jul", bad:"Oct–Jan", best:"Feb, Jun", hardy:false},
+  {n:"Cauliflower", t:"Veg", w:70, d:60, p:"Feb–Apr", bad:"Sep–Jan", best:"Mar", hardy:false},
+  {n:"Chamomile", t:"Herb", w:80, d:60, p:"Mar–May", bad:"Aug–Jan", best:"Apr", hardy:false},
+  {n:"Chives", t:"Herb", w:60, d:60, p:"Mar–Aug", bad:"Oct–Feb", best:"Apr", hardy:false},
+  {n:"Cilantro", t:"Herb", w:70, d:60, p:"Mar–May", bad:"Jul–Jan", best:"Apr", hardy:false},
+  {n:"Comfrey", t:"Herb", w:60, d:60, p:"Mar–Aug", bad:"Oct–Feb", best:"Mar–Apr", hardy:false},
+  {n:"Common Mallow", t:"Herb", w:70, d:60, p:"Mar–Aug", bad:"Oct–Feb", best:"Mar–Apr", hardy:false},
+  {n:"Corn", t:"Veg", w:30, d:90, p:"Mar–May", bad:"Jul–Feb", best:"Apr", hardy:false},
+  {n:"Cucumber", t:"Veg", w:70, d:90, p:"Mar–May", bad:"Aug–Feb", best:"Apr", hardy:false},
+  {n:"Flax", t:"Veg", w:30, d:108, p:"Aug–Oct", bad:"Jun–Jul", best:"Sep", hardy:true},
+  {n:"Garlic", t:"Veg", w:30, d:240, p:"Jul–Sep", bad:"Jun", best:"Aug", hardy:true},
+  {n:"Green Peas", t:"Veg", w:70, d:60, p:"Feb–Apr", bad:"Oct–Jan", best:"Mar", hardy:false},
+  {n:"Habanero", t:"Herb", w:70, d:60, p:"Apr–Jun", bad:"Oct–Mar", best:"May", hardy:false},
+  {n:"Hemp", t:"Veg", w:30, d:240, p:"Aug–Oct", bad:"Jun–Jul", best:"Sep", hardy:false},
+  {n:"Hops", t:"Veg", w:30, d:240, p:"Aug–Oct", bad:"Jun–Jul", best:"Sep", hardy:false},
+  {n:"Jalapeño", t:"Herb", w:70, d:60, p:"Apr–Jun", bad:"Oct–Mar", best:"May", hardy:false},
+  {n:"Kale", t:"Veg", w:70, d:60, p:"Feb–Aug", bad:"Nov–Jan", best:"Mar, Jul", hardy:true},
+  {n:"Lavender", t:"Herb", w:80, d:60, p:"Mar–May", bad:"Aug–Jan", best:"Apr", hardy:false},
+  {n:"Leek", t:"Herb", w:70, d:150, p:"Mar–Sep", bad:"Oct–Feb", best:"—", hardy:true},
+  {n:"Lemongrass", t:"Herb", w:70, d:60, p:"Mar–Sep", bad:"Oct–Feb", best:"—", hardy:false},
+  {n:"Lettuce", t:"Veg", w:70, d:60, p:"Feb–Sep", bad:"Oct–Jan", best:"Mar, Jul", hardy:false},
+  {n:"Marigold", t:"Herb", w:80, d:60, p:"Mar–May", bad:"Aug–Jan", best:"Apr", hardy:false},
+  {n:"Mint", t:"Herb", w:70, d:60, p:"Feb–Apr", bad:"Jun–Jan", best:"Mar", hardy:false},
+  {n:"Onion", t:"Veg", w:30, d:90, p:"Feb–Mar", bad:"Jul–Jan", best:"Feb", hardy:false},
+  {n:"Oregano", t:"Herb", w:60, d:60, p:"Feb–Apr", bad:"Jul–Jan", best:"Mar", hardy:false},
+  {n:"Parsley", t:"Herb", w:70, d:60, p:"Feb–Apr", bad:"Jun–Jan", best:"Mar", hardy:false},
+  {n:"Poppy", t:"Herb", w:80, d:60, p:"Mar–May", bad:"Aug–Jan", best:"Apr", hardy:false},
+  {n:"Potato", t:"Veg", w:60, d:90, p:"Feb–Apr", bad:"Aug–Jan", best:"Mar", hardy:false},
+  {n:"Pumpkin", t:"Veg", w:70, d:90, p:"Mar–May", bad:"Aug–Feb", best:"Apr", hardy:false},
+  {n:"Radish", t:"Veg", w:40, d:30, p:"Feb–Aug", bad:"Sep–Jan", best:"Mar, Jul", hardy:false},
+  {n:"Rosemary", t:"Herb", w:30, d:180, p:"Mar–Sep", bad:"Oct–Feb", best:"—", hardy:false},
+  {n:"Rose", t:"Herb", w:80, d:60, p:"Mar–May", bad:"Aug–Jan", best:"Apr", hardy:false},
+  {n:"Rye", t:"Veg", w:30, d:108, p:"Aug–Oct", bad:"Jun–Jul", best:"Sep", hardy:true},
+  {n:"Sage", t:"Herb", w:30, d:90, p:"Feb–Apr", bad:"Jul–Dec", best:"Mar", hardy:false},
+  {n:"Soybeans", t:"Veg", w:60, d:90, p:"Mar–May", bad:"Aug–Feb", best:"Apr", hardy:false},
+  {n:"Spinach", t:"Veg", w:70, d:60, p:"Feb–Jul", bad:"Sep–Jan", best:"Mar, Jun", hardy:false},
+  {n:"Strawberry", t:"Veg", w:80, d:90, p:"Feb–Apr", bad:"Jul–Jan", best:"Mar", hardy:false},
+  {n:"Sugar Beet", t:"Veg", w:40, d:60, p:"Feb–Jul", bad:"Sep–Jan", best:"Mar, Jun", hardy:false},
+  {n:"Sunflower", t:"Veg", w:30, d:90, p:"Mar–May", bad:"Aug–Feb", best:"Apr", hardy:false},
+  {n:"Sweet Potato", t:"Veg", w:60, d:90, p:"May–Jul", bad:"Oct–Feb", best:"Jun", hardy:false},
+  {n:"Thyme", t:"Herb", w:30, d:60, p:"Feb–Apr", bad:"Aug–Jan", best:"Mar", hardy:false},
+  {n:"Tobacco", t:"Veg", w:70, d:180, p:"Mar–Jul", bad:"Sep–Feb", best:"Mar", hardy:false},
+  {n:"Tomato", t:"Veg", w:70, d:90, p:"Apr–Jun", bad:"Oct–Mar", best:"May", hardy:false},
+  {n:"Turnip", t:"Veg", w:60, d:60, p:"May–Oct", bad:"Nov–Feb", best:"Jun, Sep", hardy:false},
+  {n:"Watermelon", t:"Veg", w:70, d:90, p:"Mar–May", bad:"Oct–Feb", best:"Apr", hardy:false},
+  {n:"Wild Garlic", t:"Herb", w:30, d:240, p:"Jul–Sep", bad:"Jun", best:"Aug", hardy:true},
+  {n:"Winter Wheat", t:"Veg", w:30, d:108, p:"Aug–Oct", bad:"Jun–Jul", best:"Sep", hardy:true},
+  {n:"Zucchini", t:"Veg", w:70, d:90, p:"Mar–May", bad:"Aug–Feb", best:"Apr", hardy:false}
+];
+
+const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function monthIdx(abbr) { return MONTH_ABBR.indexOf(abbr.trim()) + 1; }
+
+function parseMonthField(str) {
+  if (!str || str === "—") return [];
+  const out = new Set();
+  str.split(",").forEach(part => {
+    part = part.trim();
+    if (part.includes("–")) {
+      const [a, b] = part.split("–").map(s => s.trim());
+      let start = monthIdx(a), end = monthIdx(b);
+      if (start === 0 || end === 0) return;
+      if (start <= end) {
+        for (let m = start; m <= end; m++) out.add(m);
+      } else {
+        for (let m = start; m <= 12; m++) out.add(m);
+        for (let m = 1; m <= end; m++) out.add(m);
+      }
+    } else {
+      const m = monthIdx(part);
+      if (m > 0) out.add(m);
+    }
+  });
+  return [...out];
+}
+
+let cropMonthFilter = 0;
+
+function renderMonthChips() {
+  const wrap = document.getElementById("month-chips");
+  wrap.innerHTML = "";
+  
+  const allChip = document.createElement("button");
+  allChip.className = "month-chip" + (cropMonthFilter === 0 ? " active" : "");
+  allChip.textContent = "All";
+  allChip.addEventListener("click", () => { cropMonthFilter = 0; renderMonthChips(); renderCrops(); });
+  wrap.appendChild(allChip);
+
+  MONTH_ABBR.forEach((abbr, i) => {
+    const chip = document.createElement("button");
+    chip.className = "month-chip" + (cropMonthFilter === i + 1 ? " active" : "");
+    chip.textContent = abbr;
+    chip.addEventListener("click", () => { cropMonthFilter = i + 1; renderMonthChips(); renderCrops(); });
+    wrap.appendChild(chip);
+  });
+}
+
+function renderCrops() {
+  const list = document.getElementById("crop-list");
+  list.innerHTML = "";
+  const query = (document.getElementById("crop-search").value || "").toLowerCase().trim();
+
+  let filtered = CROPS.filter(c => c.n.toLowerCase().includes(query));
+  if (cropMonthFilter !== 0) {
+    filtered = filtered.filter(c => parseMonthField(c.p).includes(cropMonthFilter));
+  }
+  filtered.sort((a, b) => a.n.localeCompare(b.n));
+
+  document.getElementById("crop-count").textContent =
+    cropMonthFilter === 0
+      ? `${filtered.length} Crops`
+      : `${filtered.length} Crops plantable in ${MONTH_ABBR[cropMonthFilter - 1]}`;
+
+  filtered.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "crop-card";
+    card.innerHTML = `
+      <div class="crop-top">
+        <span class="crop-name">${c.n}</span>
+        <span class="crop-type">${c.t}</span>
+      </div>
+      <div class="crop-meta">
+        <span><b>Plant window:</b> ${c.p}</span>
+        <span><b>Best time:</b> ${c.best}</span>
+        <span><b>Bad months:</b> ${c.bad}</span>
+        <span><b>Water min.:</b> ${c.w}</span>
+        <span><b>Days:</b> ${c.d}</span>
+        ${c.hardy ? '<span class="crop-hardy">❄️ Frost-hardy</span>' : ""}
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+document.getElementById("crop-search").addEventListener("input", renderCrops);
+
+/* ========== INIT ========== */
+async function init() {
+  loadAuthConfig();
+  loadState();
+  
+  if (authConfig?.apiUrl && authConfig?.username) {
+    const success = await loadFromLambda();
+    if (!success) {
+      updateSyncStatus("error", "Sync error (loaded local)");
+    }
+    hideModal();
+  } else {
+    showModal();
+  }
+  
+  render();
+  renderMonthChips();
+  renderCrops();
+}
+
+init();
+</script>
+
+</body>
+</html>

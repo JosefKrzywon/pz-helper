@@ -1,0 +1,122 @@
+name: Deploy Sync Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Deployment action'
+        required: true
+        default: 'update'
+        type: choice
+        options:
+          - update    # Update Lambda code only
+          - full      # Full CloudFormation deployment
+
+env:
+  AWS_REGION: eu-central-1
+  STACK_NAME: pz-skillbuecher
+  BUCKET_PREFIX: pz-skillbuecher
+
+jobs:
+  deploy:
+    name: Deploy Lambda Sync Backend
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write   # For OIDC authentication
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Account ID
+        id: account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "Account ID: $ACCOUNT_ID"
+
+      - name: Package Lambda
+        run: |
+          cd aws/lambda
+          zip -j sync-function.zip index.mjs
+          echo "Lambda package created"
+
+      - name: Upload Lambda to S3
+        run: |
+          ARTIFACT_BUCKET="${{ env.BUCKET_PREFIX }}-artifacts-${{ steps.account.outputs.account_id }}"
+          
+          # Ensure bucket exists
+          if ! aws s3api head-bucket --bucket "$ARTIFACT_BUCKET" 2>/dev/null; then
+            echo "Creating artifact bucket: $ARTIFACT_BUCKET"
+            aws s3api create-bucket \
+              --bucket "$ARTIFACT_BUCKET" \
+              --region "${{ env.AWS_REGION }}" \
+              --create-bucket-configuration LocationConstraint="${{ env.AWS_REGION }}"
+            
+            aws s3api put-public-access-block \
+              --bucket "$ARTIFACT_BUCKET" \
+              --public-access-block-configuration \
+              "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+          fi
+          
+          aws s3 cp aws/lambda/sync-function.zip "s3://$ARTIFACT_BUCKET/lambda/sync-function.zip"
+          echo "Lambda package uploaded to S3"
+
+      - name: Update Lambda Code
+        if: ${{ github.event.inputs.action == 'update' }}
+        run: |
+          echo "Updating Lambda function code..."
+          aws lambda update-function-code \
+            --function-name "${{ env.BUCKET_PREFIX }}-sync" \
+            --s3-bucket "${{ env.BUCKET_PREFIX }}-artifacts-${{ steps.account.outputs.account_id }}" \
+            --s3-key "lambda/sync-function.zip" \
+            --query 'FunctionArn' \
+            --output text
+          echo "Lambda code updated!"
+
+      - name: Deploy CloudFormation Stack
+        if: ${{ github.event.inputs.action == 'full' }}
+        run: |
+          echo "Deploying CloudFormation stack..."
+          echo "Note: Password must be set via deploy.sh locally (secrets cannot be passed via CI)"
+          
+          # Check if stack exists
+          if aws cloudformation describe-stacks --stack-name "${{ env.STACK_NAME }}" &>/dev/null; then
+            echo "Stack exists, updating..."
+            aws cloudformation deploy \
+              --template-file aws/stack.yaml \
+              --stack-name "${{ env.STACK_NAME }}" \
+              --capabilities CAPABILITY_NAMED_IAM \
+              --parameter-overrides \
+                "Username=${{ vars.SYNC_USERNAME }}" \
+                "BucketPrefix=${{ env.BUCKET_PREFIX }}" \
+              --no-fail-on-empty-changeset
+          else
+            echo "::error::Stack does not exist. Run deploy.sh locally first to set the password."
+            exit 1
+          fi
+
+      - name: Get Function URL
+        id: outputs
+        run: |
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "${{ env.STACK_NAME }}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
+            --output text 2>/dev/null || echo "N/A")
+          echo "function_url=$FUNCTION_URL" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "## Sync Backend Deployment Complete! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action:** ${{ github.event.inputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Function URL:** ${{ steps.outputs.outputs.function_url }}" >> $GITHUB_STEP_SUMMARY
