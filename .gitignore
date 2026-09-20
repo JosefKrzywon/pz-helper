@@ -16,6 +16,10 @@ aws/lambda/*.zip
 
 # Local config (may contain secrets)
 aws/deploy.local.sh
+aws/config.sh
+
+# Server data (user progress)
+server/data/
 
 # Node (if someone runs npm install for testing)
 node_modules/

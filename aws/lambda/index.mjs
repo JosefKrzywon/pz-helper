@@ -1,116 +1,40 @@
 /**
- * PZ Skillbücher - Progress Sync Lambda
+ * PZ Skill Books - API Lambda
  * 
- * Handles GET (load progress) and POST (save progress) requests.
- * Authentication via Basic Auth with PBKDF2 password verification.
- * Progress stored in S3 as JSON.
+ * Endpoints:
+ *   POST /api/login     - Login, returns session cookie
+ *   GET  /api/logout    - Clear session cookie
+ *   GET  /api/sync      - Get progress
+ *   POST /api/sync      - Save progress
+ *   GET  /api/admin/users       - List users (admin only)
+ *   POST /api/admin/users       - Create user (admin only)
+ *   DELETE /api/admin/users/:id - Delete user (admin only)
  */
 
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { createHash, pbkdf2Sync, timingSafeEqual } from 'crypto';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { createHash, createHmac } from 'crypto';
+
+const client = new DynamoDBClient({});
+const db = DynamoDBDocumentClient.from(client);
+
+const USERS_TABLE = process.env.USERS_TABLE;
+const PROGRESS_TABLE = process.env.PROGRESS_TABLE;
+const SESSION_SECRET = process.env.SESSION_SECRET;
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 
 // ============================================================
-// Configuration
+// HELPERS
 // ============================================================
-const s3 = new S3Client({});
-const BUCKET = process.env.BUCKET_NAME;
-const AUTH_USERNAME = process.env.AUTH_USERNAME;
-const AUTH_PASSWORD_HASH = process.env.AUTH_PASSWORD_HASH; // Format: iterations:salt:hash (all hex)
 
-// ============================================================
-// Logging
-// ============================================================
-const log = {
-  info: (requestId, message, data = {}) => {
-    console.log(JSON.stringify({ level: 'INFO', requestId, message, ...data }));
-  },
-  warn: (requestId, message, data = {}) => {
-    console.warn(JSON.stringify({ level: 'WARN', requestId, message, ...data }));
-  },
-  error: (requestId, message, error = null, data = {}) => {
-    console.error(JSON.stringify({ 
-      level: 'ERROR', 
-      requestId, 
-      message, 
-      error: error ? { name: error.name, message: error.message, stack: error.stack } : null,
-      ...data 
-    }));
-  }
-};
-
-// ============================================================
-// Password Verification
-// ============================================================
-function verifyPassword(password, storedHash) {
-  try {
-    const parts = storedHash.split(':');
-    if (parts.length !== 3) {
-      return false;
-    }
-    
-    const [iterStr, salt, hash] = parts;
-    const iterations = parseInt(iterStr, 10);
-    
-    if (isNaN(iterations) || iterations < 1) {
-      return false;
-    }
-    
-    const saltBuf = Buffer.from(salt, 'hex');
-    const hashBuf = Buffer.from(hash, 'hex');
-    
-    if (saltBuf.length === 0 || hashBuf.length === 0) {
-      return false;
-    }
-    
-    const derivedKey = pbkdf2Sync(password, saltBuf, iterations, hashBuf.length, 'sha256');
-    
-    return timingSafeEqual(derivedKey, hashBuf);
-  } catch (e) {
-    // Don't log password verification errors in detail (security)
-    return false;
-  }
-}
-
-// ============================================================
-// Basic Auth Parsing
-// ============================================================
-function parseBasicAuth(authHeader) {
-  if (!authHeader || !authHeader.startsWith('Basic ')) {
-    return null;
-  }
-  
-  try {
-    const base64 = authHeader.slice(6);
-    const decoded = Buffer.from(base64, 'base64').toString('utf-8');
-    const colonIndex = decoded.indexOf(':');
-    
-    if (colonIndex === -1) {
-      return null;
-    }
-    
-    const username = decoded.slice(0, colonIndex);
-    const password = decoded.slice(colonIndex + 1);
-    
-    return { username, password };
-  } catch {
-    return null;
-  }
-}
-
-// ============================================================
-// Response Builder
-// ============================================================
-function response(statusCode, body, requestId = null) {
+function response(statusCode, body, cookies = []) {
   const headers = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Cache-Control': 'no-store',
   };
   
-  if (requestId) {
-    headers['X-Request-Id'] = requestId;
+  if (cookies.length > 0) {
+    headers['Set-Cookie'] = cookies.join(', ');
   }
   
   return {
@@ -120,177 +44,301 @@ function response(statusCode, body, requestId = null) {
   };
 }
 
-// ============================================================
-// S3 Key Generation
-// ============================================================
-function progressKey(username) {
-  // Hash username for privacy in S3 keys
-  const hash = createHash('sha256').update(username).digest('hex').slice(0, 16);
-  return `progress/${hash}.json`;
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  
+  cookieHeader.split(';').forEach(cookie => {
+    const [name, ...rest] = cookie.trim().split('=');
+    cookies[name] = rest.join('=');
+  });
+  
+  return cookies;
 }
 
-// ============================================================
-// S3 Operations
-// ============================================================
-async function loadProgress(username, requestId) {
-  const key = progressKey(username);
+function createSessionToken(username) {
+  const payload = {
+    username,
+    exp: Date.now() + (365 * 24 * 60 * 60 * 1000), // 1 year
+  };
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64');
+  const signature = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url');
+  return `${data}.${signature}`;
+}
+
+function verifySessionToken(token) {
+  if (!token) return null;
+  
+  const [data, signature] = token.split('.');
+  if (!data || !signature) return null;
+  
+  const expectedSig = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url');
+  if (signature !== expectedSig) return null;
   
   try {
-    const result = await s3.send(new GetObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-    }));
-    
-    const body = await result.Body.transformToString();
-    const progress = JSON.parse(body);
-    
-    log.info(requestId, 'Progress loaded from S3', { 
-      key, 
-      itemCount: Object.keys(progress).length 
-    });
-    
-    return progress;
-  } catch (e) {
-    if (e.name === 'NoSuchKey') {
-      log.info(requestId, 'No existing progress found', { key });
-      return {};
-    }
-    throw e;
+    const payload = JSON.parse(Buffer.from(data, 'base64').toString());
+    if (payload.exp && payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
   }
 }
 
-async function saveProgress(username, progress, requestId) {
-  const key = progressKey(username);
-  const itemCount = Object.keys(progress).filter(k => progress[k]).length;
+function verifyPassword(password, storedHash) {
+  const parts = storedHash.split(':');
+  if (parts.length !== 3) return false;
   
-  await s3.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    Body: JSON.stringify(progress),
-    ContentType: 'application/json',
+  const [format, salt, hash] = parts;
+  
+  if (format === 'sha256') {
+    const computed = createHash('sha256').update(salt + password).digest('hex');
+    return computed === hash;
+  }
+  
+  return false;
+}
+
+function hashPassword(password) {
+  const salt = createHash('sha256').update(Math.random().toString()).digest('hex').slice(0, 32);
+  const hash = createHash('sha256').update(salt + password).digest('hex');
+  return `sha256:${salt}:${hash}`;
+}
+
+function getUserIdHash(username) {
+  return createHash('sha256').update(username).digest('hex').slice(0, 16);
+}
+
+// ============================================================
+// HANDLERS
+// ============================================================
+
+async function handleLogin(body) {
+  const { username, password } = JSON.parse(body || '{}');
+  
+  if (!username || !password) {
+    return response(400, { error: 'Username and password required' });
+  }
+  
+  // Get user from DB
+  const result = await db.send(new GetCommand({
+    TableName: USERS_TABLE,
+    Key: { username },
   }));
   
-  log.info(requestId, 'Progress saved to S3', { key, itemCount });
+  if (!result.Item) {
+    return response(401, { error: 'Invalid credentials' });
+  }
+  
+  if (!verifyPassword(password, result.Item.passwordHash)) {
+    return response(401, { error: 'Invalid credentials' });
+  }
+  
+  // Create session
+  const token = createSessionToken(username);
+  const cookie = `pz_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=31536000`;
+  
+  return response(200, { 
+    ok: true, 
+    username,
+    isAdmin: result.Item.isAdmin || false,
+  }, [cookie]);
+}
+
+async function handleLogout() {
+  const cookie = 'pz_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0';
+  return response(200, { ok: true }, [cookie]);
+}
+
+async function handleGetProgress(username) {
+  const visibleId = getUserIdHash(username);
+  
+  const result = await db.send(new GetCommand({
+    TableName: PROGRESS_TABLE,
+    Key: { visibleId },
+  }));
+  
+  return response(200, { 
+    progress: result.Item?.progress || {} 
+  });
+}
+
+async function handleSaveProgress(username, body) {
+  const { progress } = JSON.parse(body || '{}');
+  
+  if (!progress || typeof progress !== 'object') {
+    return response(400, { error: 'Invalid progress data' });
+  }
+  
+  const visibleId = getUserIdHash(username);
+  
+  await db.send(new PutCommand({
+    TableName: PROGRESS_TABLE,
+    Item: {
+      visibleId,
+      username, // Store for reference
+      progress,
+      updatedAt: new Date().toISOString(),
+    },
+  }));
+  
+  return response(200, { ok: true });
+}
+
+async function handleListUsers(isAdmin) {
+  if (!isAdmin) {
+    return response(403, { error: 'Admin access required' });
+  }
+  
+  const result = await db.send(new ScanCommand({
+    TableName: USERS_TABLE,
+    ProjectionExpression: 'username, isAdmin, createdAt',
+  }));
+  
+  return response(200, { users: result.Items || [] });
+}
+
+async function handleCreateUser(isAdmin, body) {
+  if (!isAdmin) {
+    return response(403, { error: 'Admin access required' });
+  }
+  
+  const { username, password, makeAdmin } = JSON.parse(body || '{}');
+  
+  if (!username || !password) {
+    return response(400, { error: 'Username and password required' });
+  }
+  
+  // Check if user exists
+  const existing = await db.send(new GetCommand({
+    TableName: USERS_TABLE,
+    Key: { username },
+  }));
+  
+  if (existing.Item) {
+    return response(409, { error: 'User already exists' });
+  }
+  
+  await db.send(new PutCommand({
+    TableName: USERS_TABLE,
+    Item: {
+      username,
+      passwordHash: hashPassword(password),
+      isAdmin: makeAdmin || false,
+      createdAt: new Date().toISOString(),
+    },
+  }));
+  
+  return response(201, { ok: true, username });
+}
+
+async function handleDeleteUser(isAdmin, username, currentUser) {
+  if (!isAdmin) {
+    return response(403, { error: 'Admin access required' });
+  }
+  
+  if (username === currentUser) {
+    return response(400, { error: 'Cannot delete yourself' });
+  }
+  
+  await db.send(new DeleteCommand({
+    TableName: USERS_TABLE,
+    Key: { username },
+  }));
+  
+  // Also delete their progress
+  const visibleId = getUserIdHash(username);
+  await db.send(new DeleteCommand({
+    TableName: PROGRESS_TABLE,
+    Key: { visibleId },
+  }));
+  
+  return response(200, { ok: true });
+}
+
+async function handleGetSession(session) {
+  // Return current session info
+  const result = await db.send(new GetCommand({
+    TableName: USERS_TABLE,
+    Key: { username: session.username },
+  }));
+  
+  if (!result.Item) {
+    return response(401, { error: 'Session invalid' });
+  }
+  
+  return response(200, {
+    username: session.username,
+    isAdmin: result.Item.isAdmin || false,
+  });
 }
 
 // ============================================================
-// Request Validation
+// MAIN HANDLER
 // ============================================================
-function validateProgressObject(progress) {
-  if (!progress || typeof progress !== 'object' || Array.isArray(progress)) {
-    return { valid: false, error: 'Progress must be an object' };
-  }
-  
-  // Check that all values are booleans (or at least truthy/falsy is fine)
-  // and keys look reasonable (skill|volume format)
-  const keyPattern = /^[\w\s]+\|\d$/;
-  
-  for (const [key, value] of Object.entries(progress)) {
-    if (!keyPattern.test(key)) {
-      return { valid: false, error: `Invalid key format: ${key}` };
-    }
-    if (typeof value !== 'boolean') {
-      return { valid: false, error: `Value for ${key} must be boolean` };
-    }
-  }
-  
-  // Sanity check: max 200 entries (24 skills × 5 volumes = 120, with buffer)
-  if (Object.keys(progress).length > 200) {
-    return { valid: false, error: 'Too many entries' };
-  }
-  
-  return { valid: true };
-}
 
-// ============================================================
-// Lambda Handler
-// ============================================================
 export async function handler(event) {
-  const requestId = event.requestContext?.requestId || 
-                    event.headers?.['x-amzn-requestid'] || 
-                    `local-${Date.now()}`;
-  
   const method = event.requestContext?.http?.method || event.httpMethod;
   const path = event.requestContext?.http?.path || event.path || '/';
-  const userAgent = event.headers?.['user-agent'] || 'unknown';
+  const cookies = parseCookies(event.headers?.cookie || event.headers?.Cookie);
+  const body = event.body;
   
-  log.info(requestId, 'Request received', { method, path, userAgent });
+  console.log(`${method} ${path}`);
   
-  // Handle CORS preflight
-  if (method === 'OPTIONS') {
-    log.info(requestId, 'CORS preflight');
-    return response(200, { ok: true }, requestId);
+  // Public endpoints
+  if (path === '/api/login' && method === 'POST') {
+    return handleLogin(body);
   }
   
-  // Check configuration
-  if (!BUCKET || !AUTH_USERNAME || !AUTH_PASSWORD_HASH) {
-    log.error(requestId, 'Missing environment configuration', null, {
-      hasBucket: !!BUCKET,
-      hasUsername: !!AUTH_USERNAME,
-      hasPasswordHash: !!AUTH_PASSWORD_HASH
-    });
-    return response(500, { error: 'Server configuration error' }, requestId);
+  if (path === '/api/logout' && method === 'GET') {
+    return handleLogout();
   }
   
-  // Parse and verify auth
-  const authHeader = event.headers?.authorization || event.headers?.Authorization;
-  const auth = parseBasicAuth(authHeader);
+  // All other endpoints require session
+  const session = verifySessionToken(cookies.pz_session);
   
-  if (!auth) {
-    log.warn(requestId, 'Missing or invalid Authorization header');
-    return response(401, { error: 'Authorization required' }, requestId);
+  if (!session) {
+    return response(401, { error: 'Not authenticated' });
   }
   
-  if (auth.username !== AUTH_USERNAME) {
-    log.warn(requestId, 'Invalid username', { provided: auth.username });
-    return response(401, { error: 'Invalid credentials' }, requestId);
+  // Get user info for admin check
+  const userResult = await db.send(new GetCommand({
+    TableName: USERS_TABLE,
+    Key: { username: session.username },
+  }));
+  
+  if (!userResult.Item) {
+    return response(401, { error: 'User not found' });
   }
   
-  if (!verifyPassword(auth.password, AUTH_PASSWORD_HASH)) {
-    log.warn(requestId, 'Invalid password');
-    return response(401, { error: 'Invalid credentials' }, requestId);
+  const isAdmin = userResult.Item.isAdmin || false;
+  
+  // Session info
+  if (path === '/api/session' && method === 'GET') {
+    return handleGetSession(session);
   }
   
-  log.info(requestId, 'Authentication successful', { username: auth.username });
-  
-  try {
-    // GET - Load progress
-    if (method === 'GET') {
-      const progress = await loadProgress(auth.username, requestId);
-      return response(200, { progress }, requestId);
-    }
-    
-    // POST - Save progress
-    if (method === 'POST') {
-      let body;
-      try {
-        body = JSON.parse(event.body || '{}');
-      } catch (e) {
-        log.warn(requestId, 'Invalid JSON in request body');
-        return response(400, { error: 'Invalid JSON body' }, requestId);
-      }
-      
-      if (!body.progress) {
-        log.warn(requestId, 'Missing progress in request body');
-        return response(400, { error: 'Missing progress object' }, requestId);
-      }
-      
-      const validation = validateProgressObject(body.progress);
-      if (!validation.valid) {
-        log.warn(requestId, 'Invalid progress object', { error: validation.error });
-        return response(400, { error: validation.error }, requestId);
-      }
-      
-      await saveProgress(auth.username, body.progress, requestId);
-      return response(200, { ok: true }, requestId);
-    }
-    
-    // Method not allowed
-    log.warn(requestId, 'Method not allowed', { method });
-    return response(405, { error: 'Method not allowed' }, requestId);
-    
-  } catch (e) {
-    log.error(requestId, 'Handler error', e);
-    return response(500, { error: 'Internal server error' }, requestId);
+  // Progress sync
+  if (path === '/api/sync' && method === 'GET') {
+    return handleGetProgress(session.username);
   }
+  
+  if (path === '/api/sync' && method === 'POST') {
+    return handleSaveProgress(session.username, body);
+  }
+  
+  // Admin endpoints
+  if (path === '/api/admin/users' && method === 'GET') {
+    return handleListUsers(isAdmin);
+  }
+  
+  if (path === '/api/admin/users' && method === 'POST') {
+    return handleCreateUser(isAdmin, body);
+  }
+  
+  if (path.startsWith('/api/admin/users/') && method === 'DELETE') {
+    const targetUser = decodeURIComponent(path.split('/').pop());
+    return handleDeleteUser(isAdmin, targetUser, session.username);
+  }
+  
+  return response(404, { error: 'Not found' });
 }

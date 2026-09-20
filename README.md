@@ -2,107 +2,89 @@
 
 A checklist for all 120 skill books in Project Zomboid (Build 42) — plus a growing calendar for farming.
 
-**Features:**
-- 24 Skills × 5 Volumes = 120 books to check off
-- Progress indicator
-- Search and sorting (by category or A–Z)
-- Growing calendar with month filter
-- Mobile-optimized
-- Export/Import for backups
-- Optional: Cloud sync between devices
+![Screenshot](docs/screenshot.png)
 
----
+## ✨ Features
 
-## 📦 Three Versions
-
-| Version | File | Sync | Setup | For whom |
-|---------|------|------|-------|----------|
-| **Local** | `index.html` | ❌ Export/Import | None | One device, offline |
-| **Gist** | `index-gist.html` | ✅ GitHub Gist | 5 min | Multiple devices, free |
-| **AWS** | `index-lambda.html` | ✅ S3 + Lambda | 15 min | Own infrastructure |
+- **24 Skills × 5 Volumes** = 120 books to track
+- **Progress indicator** with percentage
+- **Search and sorting** (by category or A–Z)
+- **Growing calendar** with month filter for Build 42
+- **Mobile-optimized** responsive design
+- **Export/Import** for local backups
+- **Cloud sync** between devices (multiple options)
+- **Multi-user support** with admin panel (AWS version)
 
 ---
 
 ## 🚀 Quick Start
 
-### Version 1: Local (Simplest)
+### Option 1: Just Open It (Simplest)
 
 ```bash
-# Just open in browser
+# Download and open in browser
 open index.html
 ```
 
-- Progress is stored in browser (localStorage)
-- **Export/Import** buttons for backups and device transfers
-- No internet connection required
+Progress is stored in your browser's localStorage. Use Export/Import for backups.
 
-### Version 2: GitHub Gist Sync
+### Option 2: GitHub Pages (Free, Public)
 
-1. [Create Personal Access Token](https://github.com/settings/tokens?type=beta) (Gist permission only)
-2. Open `index-gist.html`
-3. Enter token → Gist is created automatically
-4. On other devices: Enter token + Gist ID
+1. Fork this repository
+2. Go to Settings → Pages → Enable GitHub Pages
+3. Access at `https://YOUR-USERNAME.github.io/pz-skillbooks/`
 
-**Cost:** $0
+### Option 3: AWS (Private, Multi-User, Recommended)
 
-→ [Detailed Guide](docs/setup-gist.md)
+Deploy your own password-protected instance:
 
-### Version 3: AWS Lambda Sync
-
-```bash
-cd aws
-./deploy.sh           # Deploy sync backend
-./deploy.sh website   # Optional: Host website on your own domain
 ```
+https://zomboid.your-domain.com
+```
+
+**Features:**
+- Custom domain with HTTPS
+- Cookie-based login (no popup)
+- Progress synced to cloud
+- Multiple users with separate progress
+- Admin panel for user management
 
 **Cost:** ~$0.50/month (Route53 only)
 
-→ [Detailed Guide](docs/setup-aws.md)
+→ **[Full AWS Setup Guide](docs/setup-aws.md)**
 
 ---
 
-## 💰 AWS Costs (without Free Tier)
+## 📦 All Versions
 
-Realistic costs at normal usage (one user, a few requests per day):
-
-| Service | Price | Your Usage | Cost/Month |
-|---------|-------|------------|------------|
-| S3 Storage | $0.023/GB | ~10 KB | < $0.01 |
-| S3 Requests | $0.0004/1000 | ~500 | < $0.01 |
-| Lambda Requests | $0.20/1 million | ~500 | < $0.01 |
-| Lambda Compute | $0.0000167/GB-s | ~50 GB-s | < $0.01 |
-| CloudFront Requests | $0.01/10,000 | ~1,000 | < $0.01 |
-| CloudFront Transfer | $0.085/GB | ~10 MB | < $0.01 |
-| **Route53 Zone** | **$0.50/month** | 1 Zone | **$0.50** |
-| Route53 Queries | $0.40/1 million | ~1,000 | < $0.01 |
-
-**Total Cost: ~$0.50/month**
-
-The Route53 Hosted Zone is the only significant cost factor. Everything else adds up to a few cents.
-
-Even at 100x more usage you'll stay under $1/month.
+| Version | File | Sync | Setup | Use Case |
+|---------|------|------|-------|----------|
+| **Local** | `index.html` | ❌ Browser only | None | Offline, single device |
+| **Gist** | `index-gist.html` | ✅ GitHub Gist | 5 min | Free sync, multiple devices |
+| **Self-Hosted** | `index-server.html` | ✅ Local JSON | 2 min | Own server, LAN |
+| **AWS** | `aws/website/` | ✅ DynamoDB | 15 min | Production, multi-user |
 
 ---
 
-## 🌐 Hosting Options
+## 🏗️ AWS Architecture
 
-### Local / Offline
-All versions work as local files (`file://`).
-
-### GitHub Pages (recommended, free)
-1. Fork the repository
-2. Settings → Pages → Source: "Deploy from branch" → `main`
-3. Optional: Configure custom domain
-
-### AWS CloudFront (own domain, HTTPS)
-```bash
-cd aws
-./create-certificate.sh zomboid.example.com Z1234567890ABC
-# Enter Certificate ARN in deploy.sh
-./deploy.sh website
+```
+Internet → Route53 → CloudFront → S3 (Website)
+                         ↓
+                    Lambda URL → DynamoDB (Users + Progress)
 ```
 
-→ [GitHub Actions Setup](docs/setup-github-actions.md) for automatic deployments
+| Component | Purpose |
+|-----------|---------|
+| **CloudFront** | CDN + SSL + Auth routing |
+| **CloudFront Function** | Redirect to login if no session |
+| **S3** | Static website files |
+| **Lambda** | API (login, logout, sync, admin) |
+| **DynamoDB** | User accounts + progress data |
+| **Route53** | Custom domain DNS |
+| **ACM** | Free SSL certificate |
+
+**Monthly Cost:** ~$0.50 (Route53 zone fee only)
 
 ---
 
@@ -110,71 +92,153 @@ cd aws
 
 ```
 pz-skillbooks/
-├── index.html              # Version 1: localStorage + Export/Import
-├── index-gist.html         # Version 2: GitHub Gist Sync
-├── index-lambda.html       # Version 3: AWS Lambda Sync
+├── index.html                  # Local version (localStorage)
+├── index-gist.html             # GitHub Gist sync
+├── index-server.html           # Self-hosted server sync
 ├── README.md
 │
-├── docs/
-│   ├── setup-gist.md           # Gist guide
-│   ├── setup-aws.md            # AWS guide
-│   └── setup-github-actions.md # CI/CD guide
-│
 ├── aws/
-│   ├── stack.yaml              # CloudFormation: Lambda + S3
-│   ├── website-stack.yaml      # CloudFormation: CloudFront + S3
+│   ├── stack.yaml              # CloudFormation template
+│   ├── config.example.sh       # Config template
 │   ├── deploy.sh               # Deployment script
-│   ├── set-password.sh         # Change password
-│   ├── create-certificate.sh   # Create ACM certificate
-│   └── lambda/
-│       └── index.mjs           # Lambda code
+│   ├── lambda/
+│   │   └── index.mjs           # API Lambda code
+│   └── website/
+│       ├── index.html          # Main app (with API sync)
+│       └── login.html          # Login page
+│
+├── server/
+│   └── server.js               # Node.js server for self-hosting
+│
+├── docs/
+│   ├── setup-aws.md            # AWS guide (detailed!)
+│   ├── setup-gist.md           # Gist guide
+│   ├── setup-server.md         # Self-hosted guide
+│   └── requirements-aws.md     # AWS requirements spec
 │
 └── .github/
-    └── workflows/
-        ├── deploy-website.yml  # Auto-deploy on HTML changes
-        └── deploy-sync.yml     # Manual Lambda deployment
+    └── workflows/              # GitHub Actions
 ```
 
 ---
 
-## 🛠️ Customization
+## 🔐 Security
+
+### AWS Version
+- **Passwords:** SHA256 hashed with random salt
+- **Sessions:** HMAC-signed cookies (1 year validity)
+- **Transport:** HTTPS only (CloudFront enforces TLS 1.2+)
+- **Data at rest:** DynamoDB encryption enabled (AES-256)
+- **S3:** Private bucket, CloudFront OAC access only
+- **No credentials stored:** Uses IAM roles, not access keys
+
+### Gist Version
+- Token has Gist-only permission, no repo access
+- Gist is secret (unlisted, not searchable)
+- Token stored in browser localStorage only
+
+### Self-Hosted Version
+- Password hashed with bcrypt (10 rounds)
+- Data stored locally in JSON files
+- Runs behind your firewall
+
+---
+
+## 💰 Cost Breakdown (AWS)
+
+| Service | Free Tier | Expected Cost |
+|---------|-----------|---------------|
+| Lambda | 1M requests/month | $0.00 |
+| DynamoDB | 25 GB storage | $0.00 |
+| S3 | 5 GB storage | ~$0.01 |
+| CloudFront | 1 TB transfer | ~$0.01 |
+| **Route53 Zone** | - | **$0.50** |
+
+**Total: ~$0.50/month** (only if using custom domain)
+
+Without custom domain: practically free!
+
+---
+
+## 🛠️ Development
 
 ### Edit Skills
-The skill data is in the `DATA` constant at the beginning of the `<script>` block:
+
+Skills are defined in the `DATA` constant:
 
 ```javascript
 const DATA = {
   "Crafts (full rate)": [
-    "Carpentry", "Cooking", ...
+    "Carpentry", "Cooking", "Electrical", ...
   ],
-  ...
+  "Survival (full rate)": [
+    "First Aid", "Fishing", ...
+  ],
+  "Combat & Firearms (reduced rate)": [
+    "Aiming", "Reloading", "Long Blade"
+  ]
 };
 ```
 
-### Edit Crops
-The growing calendar is in the `CROPS` constant:
+### Edit Growing Calendar
+
+Crops are defined in the `CROPS` constant:
 
 ```javascript
 const CROPS = [
-  {n:"Barley", t:"Veg", w:30, d:108, p:"Aug–Oct", ...},
+  {n:"Barley", t:"Veg", w:30, d:108, p:"Aug–Oct", bad:"Jun–Jul", best:"Sep", hardy:true},
+  // n: name, t: type, w: water%, d: days, p: plant window, bad: bad months, best: optimal, hardy: frost-resistant
   ...
 ];
 ```
 
+### Deploy Changes
+
+After editing HTML files:
+
+```bash
+# Upload to S3
+aws s3 cp aws/website/index.html s3://YOUR-BUCKET/index.html --content-type "text/html; charset=utf-8"
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
+```
+
 ---
 
-## 🔒 Security
+## 🐛 Troubleshooting
 
-### Gist Version
-- Token has Gist permission only, no repo access
-- Gist is private (only you can see it)
-- Token is stored locally in browser only
+### Lambda URL returns 403 Forbidden
 
-### AWS Version
-- Password is stored as PBKDF2 hash (100,000 iterations)
-- Transmission only via HTTPS (Lambda Function URL enforces TLS)
-- S3 bucket is private and encrypted (AES-256)
-- No long-lived credentials — GitHub Actions uses OIDC
+Lambda Function URLs need **two** permissions:
+1. `lambda:InvokeFunctionUrl` (created by CloudFormation)
+2. `lambda:InvokeFunction` (must be added manually!)
+
+```bash
+aws lambda add-permission \
+  --function-name YOUR_FUNCTION \
+  --statement-id FunctionURLInvokeAccess \
+  --action lambda:InvokeFunction \
+  --principal "*"
+```
+
+> This is undocumented AWS behavior. The official docs only mention the first permission.
+
+### Changes not showing
+
+CloudFront caches content. Invalidate after changes:
+
+```bash
+aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
+```
+
+### Login not working
+
+1. Check password hash in DynamoDB
+2. Check Lambda logs: `aws logs tail /aws/lambda/YOUR_FUNCTION --follow`
+3. Test API directly with curl
+
+→ See [Troubleshooting Guide](docs/setup-aws.md#troubleshooting)
 
 ---
 
@@ -187,3 +251,11 @@ MIT — do whatever you want with it.
 ## 🧟 Good luck surviving!
 
 *"You have a new skill to read."*
+
+---
+
+## 🙏 Credits
+
+- Skill book data: [Project Zomboid Wiki](https://pzwiki.net/)
+- Growing calendar: Build 42 in-game data
+- Icons: Native emoji
