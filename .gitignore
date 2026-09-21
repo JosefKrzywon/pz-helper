@@ -36,3 +36,6 @@ node_modules/
 # Temp files
 *.tmp
 *.temp
+
+# Internal specs / intermediate docs (keep local, not in Git)
+docs/requirements-aws.md
