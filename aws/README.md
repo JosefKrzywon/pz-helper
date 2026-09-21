@@ -83,10 +83,11 @@ That's it! The script is interactive and will:
 2. ✓ Test AWS permissions
 3. ✓ List your Route53 domains to choose from
 4. ✓ Ask for your preferred settings
-5. ✓ Create the SSL certificate (if using custom domain)
-6. ✓ Deploy all AWS resources via CloudFormation
-7. ✓ Upload the website files
-8. ✓ Print your website URL and login credentials
+5. ✓ Configure cost protection (budget alerts, auto-disable)
+6. ✓ Create the SSL certificate (if using custom domain)
+7. ✓ Deploy all AWS resources via CloudFormation
+8. ✓ Upload the website files
+9. ✓ Print your website URL and login credentials
 
 **First run takes 10-15 minutes** (mostly waiting for CloudFront distribution).
 
@@ -103,8 +104,30 @@ That's it! The script is interactive and will:
 | **DynamoDB** | Stores users and progress |
 | **Route53 Record** | Points your domain to CloudFront |
 | **ACM Certificate** | Free SSL certificate |
+| **AWS Budget** | Cost monitoring with alerts |
+| **Budget Alert Lambda** | Auto-disables site if budget exceeded |
+| **SNS Topic** | Delivers budget alerts |
 
 All resources are created by a single CloudFormation stack and can be deleted cleanly.
+
+---
+
+## Cost Protection (DDoS/Abuse Prevention)
+
+The setup wizard asks about cost protection:
+
+- **Budget Limit:** Set a monthly spending cap (default: $5)
+- **Alert Thresholds:** Email notifications at 50%, 80%, 100%
+- **Auto-Disable:** CloudFront is automatically disabled when 100% budget is reached
+- **Lambda Concurrency Limit:** Restricts max concurrent API calls (default: 5)
+
+**Why this matters:** Without limits, a DDoS attack or abuse could generate unexpected AWS bills. S3/CloudFront transfer costs ~$0.09/GB — a malicious actor downloading your site repeatedly could rack up charges.
+
+**If your site goes offline due to budget:**
+1. Check AWS Console → CloudFront → Distributions
+2. Select your distribution
+3. Click "Enable"
+4. Investigate what caused the traffic spike
 
 ---
 
@@ -129,6 +152,11 @@ USERNAME="zombie"
 BUCKET_PREFIX="pz-skillbooks-1234"
 DOMAIN_NAME="zomboid.your-domain.com"
 HOSTED_ZONE_ID="ZXXXXXXXXXX"
+
+# Cost Protection
+BUDGET_LIMIT="5"
+BUDGET_EMAIL=""
+LAMBDA_CONCURRENCY="5"
 ```
 
 Edit this file to change settings, then run `./deploy.sh` again.

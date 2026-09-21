@@ -286,7 +286,7 @@ first_time_setup() {
     fi
     
     # Step 5: Get remaining settings
-    header "Step 5/5: Final Settings"
+    header "Step 5/6: Final Settings"
     
     # Region
     local default_region=$(aws configure get region 2>/dev/null || echo "eu-central-1")
@@ -302,6 +302,69 @@ first_time_setup() {
     read -p "Resource prefix [$default_prefix]: " input_prefix
     BUCKET_PREFIX="${input_prefix:-$default_prefix}"
     
+    # Step 6: Cost Protection
+    header "Step 6/6: Cost Protection (DDoS/Budget)"
+    
+    echo "AWS costs can spike from unexpected traffic or DDoS attacks."
+    echo "This setup can automatically disable your site if costs exceed a limit."
+    echo ""
+    echo "How it works:"
+    echo "  - AWS Budget monitors your costs"
+    echo "  - At 50% and 80%: You get email alerts"
+    echo "  - At 100%: CloudFront gets automatically disabled"
+    echo "  - Lambda API calls are rate-limited (max concurrent executions)"
+    echo ""
+    
+    read -p "Enable cost protection? [Y/n]: " enable_budget
+    if [ "$enable_budget" == "n" ] || [ "$enable_budget" == "N" ]; then
+        BUDGET_LIMIT=0
+        BUDGET_EMAIL=""
+        LAMBDA_CONCURRENCY=10
+        warn "Cost protection disabled - no spending limit!"
+    else
+        # Budget limit
+        echo ""
+        echo "Monthly budget limit (USD):"
+        echo "  Recommended: \$5 for personal use"
+        echo "  Expected normal usage: <\$1/month"
+        echo ""
+        read -p "Budget limit in USD [5]: " input_budget
+        BUDGET_LIMIT="${input_budget:-5}"
+        
+        # Validate number
+        if ! [[ "$BUDGET_LIMIT" =~ ^[0-9]+$ ]]; then
+            warn "Invalid number, using default: 5"
+            BUDGET_LIMIT=5
+        fi
+        
+        # Email for alerts
+        echo ""
+        read -p "Email for budget alerts (optional, press Enter to skip): " input_email
+        BUDGET_EMAIL="${input_email:-}"
+        
+        # Lambda concurrency
+        echo ""
+        echo "Lambda rate limit (max concurrent API executions):"
+        echo "  5 = Very restrictive (recommended for low traffic)"
+        echo "  10 = Normal"
+        echo "  25 = Higher traffic"
+        echo ""
+        read -p "Lambda concurrency limit [5]: " input_concurrency
+        LAMBDA_CONCURRENCY="${input_concurrency:-5}"
+        
+        if ! [[ "$LAMBDA_CONCURRENCY" =~ ^[0-9]+$ ]] || [ "$LAMBDA_CONCURRENCY" -lt 1 ]; then
+            warn "Invalid number, using default: 5"
+            LAMBDA_CONCURRENCY=5
+        fi
+        
+        ok "Cost protection enabled"
+        echo "   Budget: \$${BUDGET_LIMIT}/month"
+        if [ -n "$BUDGET_EMAIL" ]; then
+            echo "   Alerts: $BUDGET_EMAIL"
+        fi
+        echo "   Lambda limit: $LAMBDA_CONCURRENCY concurrent"
+    fi
+    
     # Save config
     header "Saving Configuration"
     
@@ -315,20 +378,27 @@ USERNAME="$USERNAME"
 BUCKET_PREFIX="$BUCKET_PREFIX"
 DOMAIN_NAME="$DOMAIN_NAME"
 HOSTED_ZONE_ID="$HOSTED_ZONE_ID"
+
+# Cost Protection
+BUDGET_LIMIT="$BUDGET_LIMIT"
+BUDGET_EMAIL="$BUDGET_EMAIL"
+LAMBDA_CONCURRENCY="$LAMBDA_CONCURRENCY"
 EOF
     
     ok "Config saved to config.sh"
     echo ""
     echo "Settings:"
-    echo "  Region:       $REGION"
-    echo "  Username:     $USERNAME"
-    echo "  Prefix:       $BUCKET_PREFIX"
+    echo "  Region:          $REGION"
+    echo "  Username:        $USERNAME"
+    echo "  Prefix:          $BUCKET_PREFIX"
     if [ -n "$DOMAIN_NAME" ]; then
-        echo "  Domain:       $DOMAIN_NAME"
-        echo "  Zone ID:      $HOSTED_ZONE_ID"
+        echo "  Domain:          $DOMAIN_NAME"
+        echo "  Zone ID:         $HOSTED_ZONE_ID"
     else
-        echo "  Domain:       (none - using S3 URL)"
+        echo "  Domain:          (none - using S3 URL)"
     fi
+    echo "  Budget Limit:    \$${BUDGET_LIMIT}/month"
+    echo "  Lambda Limit:    $LAMBDA_CONCURRENCY concurrent"
     echo ""
     
     read -p "Continue with deployment? [Y/n] " confirm
@@ -475,6 +545,11 @@ load_config() {
         first_time_setup
         source "$CONFIG_FILE"
     fi
+    
+    # Set defaults for cost protection if not in config (for old configs)
+    BUDGET_LIMIT="${BUDGET_LIMIT:-5}"
+    BUDGET_EMAIL="${BUDGET_EMAIL:-}"
+    LAMBDA_CONCURRENCY="${LAMBDA_CONCURRENCY:-5}"
     
     # Get account ID
     ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
@@ -761,12 +836,12 @@ deploy_stack() {
     header "Deploying Infrastructure"
     
     local params=(
-        "Username=${USERNAME}"
+        "AdminUsername=${USERNAME}"
         "BucketPrefix=${BUCKET_PREFIX}"
     )
     
     if [ "$PASSWORD_HASH" != "USE_PREVIOUS" ]; then
-        params+=("PasswordHash=${PASSWORD_HASH}")
+        params+=("AdminPasswordHash=${PASSWORD_HASH}")
     fi
     
     if [ "$USE_CUSTOM_DOMAIN" == "true" ]; then
@@ -775,9 +850,20 @@ deploy_stack() {
         params+=("CertificateArn=${CERTIFICATE_ARN}")
     fi
     
+    # Cost protection parameters
+    params+=("BudgetLimit=${BUDGET_LIMIT}")
+    params+=("LambdaConcurrencyLimit=${LAMBDA_CONCURRENCY}")
+    if [ -n "$BUDGET_EMAIL" ]; then
+        params+=("BudgetAlertEmail=${BUDGET_EMAIL}")
+    fi
+    
     info "Deploying CloudFormation stack: ${STACK_NAME}"
     if [ "$USE_CUSTOM_DOMAIN" == "true" ]; then
         echo "   (CloudFront deployment takes 5-10 minutes...)"
+    fi
+    if [ "$BUDGET_LIMIT" -gt 0 ]; then
+        echo "   Budget: \$${BUDGET_LIMIT}/month (auto-disable at 100%)"
+        echo "   Lambda concurrency limit: ${LAMBDA_CONCURRENCY}"
     fi
     
     aws cloudformation deploy \
@@ -868,6 +954,23 @@ show_results() {
     echo ""
     echo "Sync API: ${function_url}"
     echo ""
+    
+    # Show cost protection info
+    if [ "$BUDGET_LIMIT" -gt 0 ]; then
+        echo "────────────────────────────────────────"
+        echo -e "${BOLD}Cost Protection:${NC}"
+        echo "  Budget Limit:     \$${BUDGET_LIMIT}/month"
+        echo "  Lambda Limit:     ${LAMBDA_CONCURRENCY} concurrent executions"
+        echo "  Auto-Disable:     CloudFront stops at 100% budget"
+        if [ -n "$BUDGET_EMAIL" ]; then
+            echo "  Alerts:           ${BUDGET_EMAIL}"
+        fi
+        echo ""
+        warn "If site goes offline due to budget: Re-enable in AWS Console"
+        echo "   → CloudFront → Distributions → Enable"
+        echo ""
+    fi
+    
     echo "────────────────────────────────────────"
     echo "Commands:"
     echo "  ./deploy.sh --upload    Update HTML files"

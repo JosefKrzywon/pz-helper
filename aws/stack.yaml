@@ -35,6 +35,31 @@ Parameters:
     Description: 'Secret for signing session cookies'
     NoEcho: true
 
+  BudgetLimit:
+    Type: Number
+    Description: 'Monthly budget limit in USD (0 = disabled)'
+    Default: 5
+    MinValue: 0
+    MaxValue: 100
+
+  BudgetAlertEmail:
+    Type: String
+    Description: 'Email for budget alerts (empty = no email alerts)'
+    Default: ''
+
+  LambdaConcurrencyLimit:
+    Type: Number
+    Description: 'Max concurrent Lambda executions (rate limit)'
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+
+Conditions:
+  BudgetEnabled: !Not [!Equals [!Ref BudgetLimit, 0]]
+  EmailAlertEnabled: !And
+    - !Condition BudgetEnabled
+    - !Not [!Equals [!Ref BudgetAlertEmail, '']]
+
 Resources:
   # ============================================================
   # DYNAMODB TABLES
@@ -137,6 +162,7 @@ Resources:
       Handler: index.handler
       Timeout: 10
       MemorySize: 128
+      ReservedConcurrentExecutions: !Ref LambdaConcurrencyLimit
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
@@ -331,6 +357,179 @@ Resources:
         DNSName: !GetAtt CloudFrontDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2
 
+  # ============================================================
+  # COST PROTECTION: Budget + Auto-Disable
+  # ============================================================
+  
+  # SNS Topic for Budget Alerts
+  BudgetAlertTopic:
+    Type: AWS::SNS::Topic
+    Condition: BudgetEnabled
+    Properties:
+      TopicName: !Sub '${BucketPrefix}-budget-alert'
+      Tags:
+        - Key: Project
+          Value: !Ref BucketPrefix
+
+  # Email subscription for alerts (optional)
+  BudgetAlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: EmailAlertEnabled
+    Properties:
+      TopicArn: !Ref BudgetAlertTopic
+      Protocol: email
+      Endpoint: !Ref BudgetAlertEmail
+
+  # Lambda subscription for auto-disable
+  BudgetAlertLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: BudgetEnabled
+    Properties:
+      TopicArn: !Ref BudgetAlertTopic
+      Protocol: lambda
+      Endpoint: !GetAtt BudgetAlertHandler.Arn
+
+  # Permission for SNS to invoke Lambda
+  BudgetAlertLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Condition: BudgetEnabled
+    Properties:
+      FunctionName: !Ref BudgetAlertHandler
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref BudgetAlertTopic
+
+  # Lambda Role for Budget Alert Handler
+  BudgetAlertHandlerRole:
+    Type: AWS::IAM::Role
+    Condition: BudgetEnabled
+    Properties:
+      RoleName: !Sub '${BucketPrefix}-budget-handler-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DisableCloudFront
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
+                Resource: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+      Tags:
+        - Key: Project
+          Value: !Ref BucketPrefix
+
+  # Lambda Function to disable CloudFront on budget alert
+  BudgetAlertHandler:
+    Type: AWS::Lambda::Function
+    Condition: BudgetEnabled
+    Properties:
+      FunctionName: !Sub '${BucketPrefix}-budget-handler'
+      Description: 'Disables CloudFront distribution when budget threshold is exceeded'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt BudgetAlertHandlerRole.Arn
+      Environment:
+        Variables:
+          DISTRIBUTION_ID: !Ref CloudFrontDistribution
+      Code:
+        ZipFile: |
+          const { CloudFrontClient, GetDistributionConfigCommand, UpdateDistributionCommand } = require('@aws-sdk/client-cloudfront');
+          
+          const client = new CloudFrontClient({});
+          const DISTRIBUTION_ID = process.env.DISTRIBUTION_ID;
+          
+          exports.handler = async (event) => {
+            console.log('Budget alert received:', JSON.stringify(event, null, 2));
+            
+            try {
+              // Get current distribution config
+              const getCmd = new GetDistributionConfigCommand({ Id: DISTRIBUTION_ID });
+              const { DistributionConfig, ETag } = await client.send(getCmd);
+              
+              if (!DistributionConfig.Enabled) {
+                console.log('Distribution already disabled');
+                return { statusCode: 200, body: 'Already disabled' };
+              }
+              
+              // Disable the distribution
+              DistributionConfig.Enabled = false;
+              DistributionConfig.Comment = `DISABLED BY BUDGET ALERT - ${new Date().toISOString()} - Original: ${DistributionConfig.Comment}`;
+              
+              const updateCmd = new UpdateDistributionCommand({
+                Id: DISTRIBUTION_ID,
+                DistributionConfig,
+                IfMatch: ETag
+              });
+              
+              await client.send(updateCmd);
+              console.log('CloudFront distribution disabled successfully');
+              
+              return { statusCode: 200, body: 'Distribution disabled' };
+            } catch (error) {
+              console.error('Failed to disable distribution:', error);
+              throw error;
+            }
+          };
+      Tags:
+        - Key: Project
+          Value: !Ref BucketPrefix
+
+  # AWS Budget with alert thresholds
+  CostBudget:
+    Type: AWS::Budgets::Budget
+    Condition: BudgetEnabled
+    Properties:
+      Budget:
+        BudgetName: !Sub '${BucketPrefix}-monthly-budget'
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref BudgetLimit
+          Unit: USD
+        CostFilters:
+          TagKeyValue:
+            - !Sub 'user:Project$${BucketPrefix}'
+      NotificationsWithSubscribers:
+        # Warning at 50%
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 50
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref BudgetAlertTopic
+        # Warning at 80%
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref BudgetAlertTopic
+        # CRITICAL at 100% - triggers auto-disable
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref BudgetAlertTopic
+
 Outputs:
   WebsiteURL:
     Value: !Sub 'https://${DomainName}'
@@ -346,3 +545,12 @@ Outputs:
 
   CloudFrontDistributionId:
     Value: !Ref CloudFrontDistribution
+
+  BudgetAlertTopicArn:
+    Condition: BudgetEnabled
+    Value: !Ref BudgetAlertTopic
+    Description: 'SNS Topic for budget alerts'
+
+  LambdaConcurrencyLimit:
+    Value: !Ref LambdaConcurrencyLimit
+    Description: 'Max concurrent API Lambda executions'
