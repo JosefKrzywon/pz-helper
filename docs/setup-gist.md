@@ -1,101 +1,126 @@
 # Setup: GitHub Gist Sync
 
-This guide explains how to set up the Gist version (`index-gist.html`) to sync your progress between multiple devices.
+This guide explains how to set up the Gist version (`index-gist.html`) to sync
+your progress between multiple devices. A **Gist** is a small file store hosted
+by GitHub; this version keeps your progress in a single secret Gist that only
+you can see.
 
 ## Prerequisites
 
 - A GitHub account (free)
 - About 5 minutes
 
-## Step 1: Create Personal Access Token
+## Step 1: Create a Personal Access Token
 
-1. Go to [GitHub Settings → Tokens](https://github.com/settings/tokens?type=beta)
-   
-2. Click **"Generate new token"** (Fine-grained token)
+A Personal Access Token is a secret credential the app uses to read and write
+your Gist on your behalf, without your GitHub password.
+
+1. Go to [GitHub Settings → Tokens](https://github.com/settings/tokens?type=beta).
+
+2. Click **"Generate new token"** (Fine-grained token).
 
 3. Fill in:
    - **Token name:** `PZ Skillbooks` (or anything you like)
    - **Expiration:** Choose a duration (e.g. 90 days) or "No expiration"
    - **Repository access:** "Public Repositories (read-only)" is sufficient
-   
-4. Under **"Account permissions"** → **"Gists"** → Select **"Read and write"**
+     (the app only needs Gist access, but fine-grained tokens require you to
+     pick a repository-access option).
 
-5. Click **"Generate token"**
+4. Under **"Account permissions"** → **"Gists"**, select **"Read and write"**.
 
-6. **Copy the token** (starts with `github_pat_...` or `ghp_...`)
-   
-   ⚠️ **Important:** You'll only see the token once! Save it securely (e.g. in a password manager).
+5. Click **"Generate token"**.
+
+6. **Copy the token** (it starts with `github_pat_...` or `ghp_...`).
+
+   ⚠️ **Important:** You will only see the token once. Save it securely (for
+   example, in a password manager) and keep it secret.
 
 ## Step 2: Set up the App
 
-1. Open `index-gist.html` in your browser
+1. Open `index-gist.html` in your browser.
 
-2. The setup modal appears automatically
+2. The setup dialog appears automatically.
 
-3. Paste your **Token**
+3. Paste your **Token**.
 
-4. Leave the **"Gist ID"** field empty (a new Gist will be created)
+4. Leave the **"Gist ID"** field empty (a new Gist will be created for you).
 
-5. Click **"Connect"**
+5. Click **"Connect"**.
 
-6. Done! Your progress is now automatically saved in a private Gist.
+6. Done — your progress is now saved automatically in a secret Gist.
 
-## Step 3: Set up on other devices
+**Verify it worked:** Tick a few items, then reload the page. Your progress
+should remain. You can also confirm a new Gist named
+`PZ Skill Books Checklist - Progress` appears at
+[gist.github.com](https://gist.github.com).
 
-1. Open `index-gist.html` on the other device
+## Step 3: Set up on Other Devices
 
-2. Enter the same **Token**
+To sync a second device, reuse the same token and the Gist ID created in Step 2.
 
-3. Enter the **Gist ID** (find it in your Gist's URL, e.g. `https://gist.github.com/username/abc123def456` → ID is `abc123def456`)
+1. Open `index-gist.html` on the other device.
 
-4. Click **"Connect"**
+2. Enter the same **Token**.
 
-5. Your progress will be loaded and synced!
+3. Enter the **Gist ID**. You can find it in the Gist's URL — for example, in
+   `https://gist.github.com/username/abc123def456` the ID is `abc123def456`.
+
+4. Click **"Connect"**.
+
+5. Your progress is loaded and kept in sync.
 
 ## Finding the Gist ID
 
 If you need the Gist ID:
 
-1. Go to [gist.github.com](https://gist.github.com)
-2. Find the Gist named "PZ Skill Books Checklist - Progress"
-3. The ID is the last part of the URL
+1. Go to [gist.github.com](https://gist.github.com).
+2. Find the Gist named `PZ Skill Books Checklist - Progress`.
+3. The ID is the last part of the URL.
 
 Or from the first device:
-1. Click ⚙️ Sync
-2. The Gist ID is in the field
+
+1. Click ⚙️ **Sync**.
+2. The Gist ID is shown in the field.
 
 ## Renewing the Token
 
-When your token expires:
+When your token expires, create a new one and reconnect. The Gist ID stays the
+same, so your progress is not lost.
 
-1. Create a new token (Step 1)
-2. Open the app
-3. Click ⚙️ Sync
-4. Enter the new token (Gist ID stays the same)
-5. Click "Connect"
+1. Create a new token (repeat Step 1).
+2. Open the app.
+3. Click ⚙️ **Sync**.
+4. Enter the new token (keep the same Gist ID).
+5. Click **"Connect"**.
 
 ## Troubleshooting
 
 ### "Invalid token"
-- Check if you copied the token correctly
-- Make sure the token has "Gists: Read and write" permission
-- Check if the token has expired
+
+- Check that you copied the token correctly.
+- Make sure the token has the "Gists: Read and write" permission.
+- Check whether the token has expired.
 
 ### "Sync error"
-- Check your internet connection
-- The Gist might have been deleted → leave Gist ID empty for a new one
+
+- Check your internet connection.
+- The Gist might have been deleted — leave the Gist ID empty to create a new one.
 
 ### Progress gone?
-- Your local progress is still in the browser (localStorage)
-- Click "Local only" to see it
-- If problems persist: clear the Gist ID and reconnect (new Gist)
+
+- Your local progress is still in the browser (stored in `localStorage`).
+- Click **"Local only"** to see it.
+- If problems persist, clear the Gist ID and reconnect (this creates a new Gist).
 
 ## Security
 
-- Your token only has access to Gists, not your repos
-- The Gist is **private** (only you can see it)
-- The token is stored locally in your browser only
-- Nobody but you can see or modify your progress
+- The token only has access to Gists, not to your repositories.
+- The Gist is **secret** (`public: false`), so only you can see it. Note that a
+  secret Gist is not password-protected — anyone with the direct link could
+  view it, so do not share the URL.
+- The token is stored locally in your browser only.
+- Nobody but you can see or modify your progress unless you share your token or
+  the Gist link.
 
 ## Cost
 
