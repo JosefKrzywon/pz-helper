@@ -23,6 +23,47 @@
     padding: 16px;
     padding-bottom: 60px;
   }
+  /* Tab Navigation */
+  .tab-nav {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 14px 16px;
+    background: var(--card);
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.95em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .tab-btn:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+  .tab-btn:hover {
+    background: #282d32;
+  }
+  .tab-btn.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+  }
   h1 {
     font-size: 1.3em;
     margin: 0 0 4px 0;
@@ -201,9 +242,7 @@
   .section-title {
     font-size: 1.1em;
     font-weight: 600;
-    margin: 28px 0 10px 0;
-    border-top: 1px solid var(--border);
-    padding-top: 20px;
+    margin: 0 0 10px 0;
   }
   .month-chips {
     display: flex;
@@ -356,44 +395,58 @@
   </div>
 </div>
 
-<h1>📚 Project Zomboid Skill Books</h1>
-<div class="subtitle">Checklist — 24 Skills, 5 Volumes each (I–V)</div>
+<!-- Tab Navigation -->
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="skills">📚 Skill Books</button>
+  <button class="tab-btn" data-tab="farming">🌱 Farming Calendar</button>
+</nav>
 
-<div class="sync-status" id="sync-status">
-  <span class="sync-dot" id="sync-dot"></span>
-  <span id="sync-text">Not connected</span>
-  <button id="sync-settings">⚙️ Sync</button>
-</div>
+<!-- Skills Tab -->
+<div id="tab-skills" class="tab-content active">
+  <h1>📚 Project Zomboid Skill Books</h1>
+  <div class="subtitle">Checklist — 24 Skills, 5 Volumes each (I–V)</div>
 
-<div class="progress-bar-wrap">
-  <div class="progress-text">
-    <span id="progress-label">0 / 120 found</span>
-    <span id="progress-percent">0%</span>
+  <div class="sync-status" id="sync-status">
+    <span class="sync-dot" id="sync-dot"></span>
+    <span id="sync-text">Not connected</span>
+    <button id="sync-settings">⚙️ Sync</button>
   </div>
-  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-text">
+      <span id="progress-label">0 / 120 found</span>
+      <span id="progress-percent">0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="search-wrap">
+    <input type="text" id="search" placeholder="Search skill...">
+  </div>
+
+  <div class="sort-toggle">
+    <button class="sort-btn active" id="sort-category" data-mode="category">By Category</button>
+    <button class="sort-btn" id="sort-alpha" data-mode="alpha">A–Z</button>
+  </div>
+
+  <div id="skill-list"></div>
+
+  <button class="reset-btn" id="reset-btn">Reset all checkmarks</button>
+  <div class="note">Sync via GitHub Gist. <a href="https://github.com/YOUR-USERNAME/pz-skillbooks" target="_blank">Documentation</a></div>
 </div>
 
-<div class="search-wrap">
-  <input type="text" id="search" placeholder="Search skill...">
+<!-- Farming Calendar Tab -->
+<div id="tab-farming" class="tab-content">
+  <h1 class="section-title">🌱 Growing Calendar (Build 42)</h1>
+  <div class="subtitle">Plant windows, water requirements & frost hardiness</div>
+  
+  <div class="search-wrap">
+    <input type="text" id="crop-search" placeholder="Search crop...">
+  </div>
+  <div class="month-chips" id="month-chips"></div>
+  <div class="crop-count" id="crop-count"></div>
+  <div id="crop-list"></div>
 </div>
-
-<div class="sort-toggle">
-  <button class="sort-btn active" id="sort-category" data-mode="category">By Category</button>
-  <button class="sort-btn" id="sort-alpha" data-mode="alpha">A–Z</button>
-</div>
-
-<div id="skill-list"></div>
-
-<button class="reset-btn" id="reset-btn">Reset all checkmarks</button>
-<div class="note">Sync via GitHub Gist. <a href="https://github.com/YOUR-USERNAME/pz-skillbooks" target="_blank">Documentation</a></div>
-
-<div class="section-title">🌱 Growing Calendar (Build 42)</div>
-<div class="search-wrap">
-  <input type="text" id="crop-search" placeholder="Search crop...">
-</div>
-<div class="month-chips" id="month-chips"></div>
-<div class="crop-count" id="crop-count"></div>
-<div id="crop-list"></div>
 
 <script>
 /* ========== SKILL DATA ========== */
@@ -909,6 +962,21 @@ function renderCrops() {
 }
 
 document.getElementById("crop-search").addEventListener("input", renderCrops);
+
+/* ========== TAB NAVIGATION ========== */
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const tabId = btn.dataset.tab;
+    
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    
+    document.querySelectorAll(".tab-content").forEach(content => {
+      content.classList.remove("active");
+    });
+    document.getElementById("tab-" + tabId).classList.add("active");
+  });
+});
 
 /* ========== INIT ========== */
 async function init() {
