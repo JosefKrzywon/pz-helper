@@ -172,7 +172,7 @@ Resources:
           ADMIN_USERNAME: !Ref AdminUsername
       Code:
         S3Bucket: !Sub '${BucketPrefix}-artifacts-${AWS::AccountId}'
-        S3Key: lambda/api-function.zip
+        S3Key: lambda/sync-function.zip
       Tags:
         - Key: Project
           Value: !Ref BucketPrefix
