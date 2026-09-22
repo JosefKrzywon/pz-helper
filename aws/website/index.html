@@ -408,6 +408,23 @@
     font-size: 0.8em;
     cursor: pointer;
   }
+  .user-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .reset-pw-btn {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.8em;
+    cursor: pointer;
+  }
+  .reset-pw-btn:hover {
+    color: var(--text);
+    border-color: var(--text-dim);
+  }
   .add-user-form {
     border-top: 1px solid var(--border);
     padding-top: 16px;
@@ -873,7 +890,10 @@ async function loadUsers() {
           ${u.username}
           ${u.isAdmin ? '<span class="user-badge">Admin</span>' : ''}
         </span>
-        ${u.username !== currentUser ? `<button class="delete-user-btn" onclick="deleteUser('${u.username}')">Delete</button>` : ''}
+        <span class="user-actions">
+          <button class="reset-pw-btn" onclick="resetUserPassword('${u.username}')">Reset PW</button>
+          ${u.username !== currentUser ? `<button class="delete-user-btn" onclick="deleteUser('${u.username}')">Delete</button>` : ''}
+        </span>
       </div>
     `).join('');
   } catch (e) {
@@ -881,8 +901,29 @@ async function loadUsers() {
   }
 }
 
-window.deleteUser = async function(username) {
-  if (!confirm(`Delete user "${username}"? Their progress will also be deleted.`)) return;
+window.resetUserPassword = async function(username) {
+  const newPw = prompt(`Enter a new password for "${username}":`);
+  if (newPw === null) return;          // cancelled
+  if (!newPw) { alert('Password cannot be empty'); return; }
+
+  try {
+    const res = await fetch(`/api/admin/users/${encodeURIComponent(username)}/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPw }),
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Reset failed');
+    }
+    alert(`Password for "${username}" has been reset.`);
+  } catch (e) {
+    alert('Failed to reset password: ' + e.message);
+  }
+};
+
+window.deleteUser = async function(username) {  if (!confirm(`Delete user "${username}"? Their progress will also be deleted.`)) return;
   
   try {
     const res = await fetch(`/api/admin/users/${encodeURIComponent(username)}`, {

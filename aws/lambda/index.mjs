@@ -285,6 +285,37 @@ async function handleDeleteUser(isAdmin, username, currentUser) {
   return response(200, { ok: true });
 }
 
+async function handleResetUserPassword(isAdmin, username, body) {
+  if (!isAdmin) {
+    return response(403, { error: 'Admin access required' });
+  }
+
+  const { password } = JSON.parse(body || '{}');
+  if (!password) {
+    return response(400, { error: 'Password required' });
+  }
+
+  // User must exist
+  const existing = await db.send(new GetCommand({
+    TableName: USERS_TABLE,
+    Key: { username },
+  }));
+  if (!existing.Item) {
+    return response(404, { error: 'User not found' });
+  }
+
+  // Update only the password hash, keep isAdmin/createdAt intact
+  await db.send(new PutCommand({
+    TableName: USERS_TABLE,
+    Item: {
+      ...existing.Item,
+      passwordHash: hashPassword(password),
+    },
+  }));
+
+  return response(200, { ok: true });
+}
+
 async function handleGetSession(session) {
   // Return current session info
   const result = await db.send(new GetCommand({
@@ -369,6 +400,14 @@ export async function handler(event) {
     const targetUser = decodeURIComponent(path.split('/').pop());
     return handleDeleteUser(isAdmin, targetUser, session.username);
   }
-  
+
+  // Admin: reset a user's password  ->  POST /api/admin/users/:username/password
+  if (path.startsWith('/api/admin/users/') && path.endsWith('/password') && method === 'POST') {
+    const segments = path.split('/');
+    // ['', 'api', 'admin', 'users', '<username>', 'password']
+    const targetUser = decodeURIComponent(segments[4]);
+    return handleResetUserPassword(isAdmin, targetUser, body);
+  }
+
   return response(404, { error: 'Not found' });
 }

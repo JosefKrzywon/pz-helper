@@ -166,6 +166,31 @@ password never leaves your machine; only the salted SHA-256 hash is stored.
 
 ---
 
+## Admin Panel
+
+Users flagged as **admin** see a 👑 **Admin** button in the top bar after
+logging in. It opens a simple user-management panel:
+
+- **Add User** — create a new account; tick *Make admin* to grant admin rights.
+- **Reset PW** — set a new password for any user (useful when someone forgets
+  theirs). The admin types the new password; it is hashed server-side.
+- **Delete** — remove a user (and their saved progress). You cannot delete
+  your own account.
+
+**Roles:**
+
+| Role | Can do |
+|------|--------|
+| **Administrator** | Everything a user can, plus create / delete users and reset passwords |
+| **User** | Log in and track their own skill books; progress synced to the cloud |
+
+The first admin user is created automatically on first login from the username
+and password you set during `./deploy.sh`. Additional users are created from
+within the admin panel. For an out-of-band password reset (e.g. the admin
+locked themselves out), use `./reset-password.sh` (see above).
+
+---
+
 ## Configuration
 
 After first run, settings are saved in `config.sh`:

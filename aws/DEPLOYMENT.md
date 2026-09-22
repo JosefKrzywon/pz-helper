@@ -4,7 +4,7 @@ A detailed reference for deploying, operating, and tearing down the PZ Skill Boo
 AWS environment.
 
 Last updated: 2026-09-22
-Version: 1.2
+Version: 1.3
 
 ---
 
@@ -602,6 +602,18 @@ aws cloudformation describe-stacks --stack-name pz-helper --region $REGION \
 ---
 
 ## Changelog
+
+### 1.3 (2026-09-22)
+
+- **Admin panel:** the web UI now includes a 👑 Admin panel (visible to admin
+  users only) to create users, delete users, and reset user passwords.
+- **New API endpoint:** `POST /api/admin/users/:username/password` lets an
+  admin set another user's password (admin-only, session required).
+- **Roles:** administrators (create/delete/reset users) and regular users
+  (track their own skill books) — controlled by the `isAdmin` flag.
+- **Deploy fix:** the AWS build of `index.html` (from `aws/website/`, with the
+  API + admin panel) is now the one served, instead of the local
+  localStorage-only build.
 
 ### 1.2 (2026-09-22)
 
