@@ -31,13 +31,38 @@ All four standalone variants share the same feature set — they differ only in
 
 | Option | Sync | Cost | Guide |
 |--------|------|------|-------|
-| **Local** | Browser only | Free | Just open `index.html` |
+| **Local** | Browser only | Free | See below |
 | **GitHub Gist** | ✅ Cloud | Free | [Setup Guide](docs/setup-gist.md) |
 | **Self-Hosted** | ✅ LAN/Server | Free | [Server Guide](server/) |
 | **AWS** | ✅ Cloud + Multi-User | ~$0 (custom domain ~$0.50/mo) | [AWS Guide](aws/) |
 
 The AWS deployment works **with or without a custom domain** — without one it
 uses the default CloudFront URL, so no Route53 setup is required.
+
+---
+
+## 💾 Local Version (Easiest)
+
+The local version stores your progress in your browser. No internet, no account, no setup — just a single HTML file.
+
+### How to use
+
+1. **Download** the file `zomboid-helper-local.html` to your computer (or phone)
+2. **Open** it in any web browser (Chrome, Firefox, Edge, Safari...)
+   - **Windows/Mac:** Double-click the file, or drag it into your browser
+   - **Android:** Use a file manager app, tap the file, choose "Open with" → your browser
+   - **iPhone/iPad:** Save to Files app, tap to open, or use a browser like Safari
+3. **Done!** Your progress is saved automatically in your browser
+
+### Good to know
+
+- ✅ Works completely offline
+- ✅ No account or password needed
+- ⚠️ Progress is stored in your browser — if you clear browser data, it's gone
+- ⚠️ Doesn't sync between devices (use Gist or AWS version for that)
+- 💡 **Tip:** Bookmark the file for quick access
+
+---
 
 ### Quick Comparison
 
@@ -59,7 +84,7 @@ uses the default CloudFront URL, so no Route53 setup is required.
 
 | File | Description |
 |------|-------------|
-| `index.html` | Local version (localStorage) |
+| `zomboid-helper-local.html` | Local version (localStorage) — **start here!** |
 | `index-gist.html` | GitHub Gist sync |
 | `index-server.html` | Self-hosted server sync |
 | `index-lambda.html` | Standalone cloud sync (Lambda backend) |

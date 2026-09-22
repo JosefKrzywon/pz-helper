@@ -8,27 +8,28 @@ How to customize the skill list, growing calendar, and contribute to the project
 
 ```
 pz-helper/
-├── index.html              # Local version (localStorage only)
-├── index-gist.html         # GitHub Gist sync version
-├── index-server.html       # Self-hosted server version
+├── zomboid-helper-local.html   # Local version (localStorage only)
+├── index-gist.html             # GitHub Gist sync version
+├── index-server.html           # Self-hosted server version
+├── index-lambda.html           # Standalone cloud sync
 │
 ├── aws/
 │   ├── website/
-│   │   ├── index.html      # AWS version (main app)
-│   │   └── login.html      # AWS login page
+│   │   ├── index.html          # AWS version (main app)
+│   │   └── login.html          # AWS login page
 │   ├── lambda/
-│   │   └── index.mjs       # API backend
-│   └── stack.yaml          # CloudFormation template
+│   │   └── index.mjs           # API backend
+│   └── stack.yaml              # CloudFormation template
 │
 └── server/
-    └── server.js           # Self-hosted Node.js server
+    └── server.js               # Self-hosted Node.js server
 ```
 
-**Important:** There are multiple `index.html` files! Make sure you edit the right one:
+**Important:** There are multiple HTML variants! Make sure you edit the right one:
 
 | File | Use Case |
 |------|----------|
-| `/index.html` | Local/offline use |
+| `/zomboid-helper-local.html` | Local/offline use |
 | `/index-gist.html` | GitHub Gist sync |
 | `/index-server.html` | Self-hosted server |
 | `/index-lambda.html` | Standalone cloud sync |
