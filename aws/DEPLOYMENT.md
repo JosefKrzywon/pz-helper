@@ -4,7 +4,7 @@ A detailed reference for deploying, operating, and tearing down the PZ Skill Boo
 AWS environment.
 
 Last updated: 2026-09-22
-Version: 1.4
+Version: 1.5
 
 ---
 
@@ -602,6 +602,16 @@ aws cloudformation describe-stacks --stack-name pz-helper --region $REGION \
 ---
 
 ## Changelog
+
+### 1.5 (2026-09-22)
+
+- **VHS Tapes tab:** a third tab tracks all skill-giving VHS tapes (Build 42.19).
+  Each tape shows the skill(s) and base XP it grants, any recipe unlocks, a
+  checkbox to mark it as found, and a link to its PZ Wiki page.
+- Two sort modes: **By Skill** (grouped; multi-skill tapes appear under each of
+  their skills with synced checkboxes) and **By Tape / Series** (alphabetical).
+- Own progress bar ("X / N found") and a search box, consistent with the skill
+  book tab.
 
 ### 1.4 (2026-09-22)
 

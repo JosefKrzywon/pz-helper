@@ -535,6 +535,56 @@
   .tab-panel.active {
     display: block;
   }
+  .vhs-tape {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: var(--card, rgba(255,255,255,0.02));
+  }
+  .vhs-tape-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .vhs-tape-main input[type="checkbox"] {
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .vhs-tape-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .vhs-name {
+    font-weight: 600;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--text-dim);
+    align-self: flex-start;
+  }
+  .vhs-name:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .vhs-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .vhs-skill {
+    font-size: 0.75em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--accent);
+    color: #111;
+    font-weight: 600;
+  }
+  .vhs-recipes {
+    font-size: 0.78em;
+    color: var(--text-dim);
+  }
 </style>
 </head>
 <body>
@@ -553,6 +603,7 @@
 <div class="main-tabs">
   <button class="main-tab active" id="tab-skills" data-panel="panel-skills">📚 Skill Books</button>
   <button class="main-tab" id="tab-farming" data-panel="panel-farming">🌱 Growing Calendar</button>
+  <button class="main-tab" id="tab-vhs" data-panel="panel-vhs">📼 VHS Tapes</button>
 </div>
 
 <div class="tab-panel active" id="panel-skills">
@@ -593,6 +644,28 @@
 <div class="month-chips" id="month-chips"></div>
 <div class="crop-count" id="crop-count"></div>
 <div id="crop-list"></div>
+</div>
+
+<div class="tab-panel" id="panel-vhs">
+<div class="progress-bar-wrap">
+  <div class="progress-text">
+    <span id="vhs-progress-label">0 / 0 found</span>
+    <span id="vhs-progress-percent">0%</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="vhs-progress-fill"></div></div>
+</div>
+
+<div class="search-wrap">
+  <input type="text" id="vhs-search" placeholder="Search VHS tape or skill...">
+</div>
+
+<div class="sort-toggle">
+  <button class="sort-btn active" id="vhs-sort-skill" data-mode="skill">By Skill</button>
+  <button class="sort-btn" id="vhs-sort-name" data-mode="name">By Tape / Series</button>
+</div>
+
+<div id="vhs-list"></div>
+<div class="note">Skill XP shown is the base value (before traits, professions and multipliers). VHS XP stops working once a skill reaches the media XP cap (default level 3).</div>
 </div>
 
 <!-- Admin Modal -->
@@ -1142,6 +1215,91 @@ const CROPS = [
   {n:"Zucchini", t:"Veg", w:70, d:90, p:"Mar–May", bad:"Aug–Feb", best:"Apr", hardy:false}
 ];
 
+// ========== VHS TAPES (Build 42.19) ==========
+// Each tape: n = name, s = [{skill, xp}], r = [recipe unlocks] (optional)
+// Skill names use Build 42 terminology.
+const VHS = [
+  // Woodcraft series (Carpentry)
+  {n:"Woodcraft E1", s:[{k:"Carpentry",xp:250}]},
+  {n:"Woodcraft E2", s:[{k:"Carpentry",xp:200}]},
+  {n:"Woodcraft E3", s:[{k:"Carpentry",xp:250}]},
+  {n:"Woodcraft E4", s:[{k:"Carpentry",xp:300}]},
+  {n:"Woodcraft E5", s:[{k:"Carpentry",xp:150}]},
+  {n:"Woodcraft E6", s:[{k:"Carpentry",xp:250}]},
+  {n:"Woodcraft E7", s:[{k:"Carpentry",xp:250}]},
+  // The Cook Show series (Cooking)
+  {n:"The Cook Show E1", s:[{k:"Cooking",xp:350}], r:["Make Cake Batter"]},
+  {n:"The Cook Show E2", s:[{k:"Cooking",xp:400}]},
+  {n:"The Cook Show E3", s:[{k:"Cooking",xp:250}]},
+  {n:"The Cook Show E4", s:[{k:"Cooking",xp:200}]},
+  {n:"The Cook Show E5", s:[{k:"Cooking",xp:200}]},
+  {n:"The Cook Show E6", s:[{k:"Cooking",xp:250}]},
+  {n:"The Cook Show E7", s:[{k:"Cooking",xp:300}], r:["Prepare Pie Dough"]},
+  // Exposure Survival series (multi-skill)
+  {n:"Exposure Survival E1", s:[{k:"Fishing",xp:200}], r:["Make Fishing Rod"]},
+  {n:"Exposure Survival E2", s:[{k:"Fishing",xp:300}]},
+  {n:"Exposure Survival E3", s:[{k:"Agriculture",xp:350}]},
+  {n:"Exposure Survival E4", s:[{k:"Carpentry",xp:300}]},
+  {n:"Exposure Survival E5", s:[{k:"Carpentry",xp:200},{k:"Foraging",xp:50}]},
+  {n:"Exposure Survival E6", s:[{k:"Trapping",xp:500}], r:["Make Crate Trap"]},
+  {n:"Exposure Survival E7", s:[{k:"Foraging",xp:350}]},
+  {n:"Exposure Survival E8", s:[{k:"Carpentry",xp:350}]},
+  // Carzone series (Mechanics)
+  {n:"Carzone E1", s:[{k:"Mechanics",xp:300}]},
+  {n:"Carzone E2", s:[{k:"Mechanics",xp:300}]},
+  {n:"Carzone E3", s:[{k:"Mechanics",xp:300}]},
+  // Agriculture tapes
+  {n:"Tree Planting Guide", s:[{k:"Agriculture",xp:300}]},
+  {n:"Growing Fruit and Veg at Home 1", s:[{k:"Agriculture",xp:300}], r:["Cabbage Season","Potato Season","Radish Season","Carrot Season","Onion Season","Broccoli Season","Strawberry Season","Tomato Season"]},
+  {n:"Growing Fruit and Veg at Home 2", s:[{k:"Agriculture",xp:300}], r:["Green Pea Season","Soybean Season","Kale Season","Garlic Season","Sweet Potato Season","Corn Season"]},
+  {n:"Growing Herbs at Home", s:[{k:"Agriculture",xp:300}], r:["Basil Season","Chives Season","Cilantro Season","Oregano Season","Parsley Season","Sage Season","Rosemary Season","Thyme Season"]},
+  {n:"Controlling Nasty Crop Pests and Diseases", s:[{k:"Agriculture",xp:150}], r:["Make Mildew Cure","Make Flies Cure","Make Aphids Cure"]},
+  // Fishing
+  {n:"Better Fishing With Jason Master", s:[{k:"Fishing",xp:300}], r:["Make Fishing Rod","Fix Fishing Rod"]},
+  // Tailoring
+  {n:"A Stitch in Time", s:[{k:"Tailoring",xp:300}]},
+  {n:"Granny Nani", s:[{k:"Tailoring",xp:300}]},
+  {n:"Tailoring 101", s:[{k:"Tailoring",xp:300}]},
+  // Welding
+  {n:"Home Welding Guide", s:[{k:"Welding",xp:300}]},
+  {n:"Adefope Fencing Special", s:[{k:"Welding",xp:450}], r:["Metal Fences (various)"]},
+  {n:"nof vid", s:[{k:"Welding",xp:400}], r:["Metal Floor","Metal Wall (Basic)"]},
+  {n:"no 9", s:[{k:"Welding",xp:450}], r:["Metal Fences (various)"]},
+  {n:"Z-Squad S2.03", s:[{k:"Mechanics",xp:50},{k:"Welding",xp:50}]},
+  // First Aid
+  {n:"Emergency First Aid", s:[{k:"First Aid",xp:300}]},
+  {n:"Combat Wound Management", s:[{k:"First Aid",xp:350}]},
+  {n:"Rosewood Medical First Aid", s:[{k:"First Aid",xp:300}]},
+  {n:"RMFA", s:[{k:"First Aid",xp:300}]},
+  // Electrical
+  {n:"How Electricity Works", s:[{k:"Electrical",xp:300}]},
+  {n:"Muldraugh AV Club", s:[{k:"Electrical",xp:300}], r:["Make Makeshift Radio"]},
+  {n:"TV repair", s:[{k:"Electrical",xp:300}]},
+  // Pottery
+  {n:"Pottery for Anyone", s:[{k:"Pottery",xp:250}]},
+  {n:"Working Clay at Home", s:[{k:"Pottery",xp:300}]},
+  // Blacksmithing
+  {n:"From Ore to Store", s:[{k:"Blacksmithing",xp:350}]},
+  // Knapping
+  {n:"Knapping: The Ancient Art", s:[{k:"Knapping",xp:300}]},
+  // Animal Care
+  {n:"A Day on the Farm", s:[{k:"Animal Care",xp:300}]},
+  {n:"The Petting Zoo", s:[{k:"Animal Care",xp:300}]},
+  // Cooking (extra)
+  {n:"Making Sushi at Home", s:[{k:"Cooking",xp:250}], r:["Prepare Sushi","Prepare Maki","Prepare Onigiri","Prepare Breaded Shrimp","Make 4 Cabbage Rolls"]},
+  // Aiming / Reloading
+  {n:"Dead Wrong", s:[{k:"Aiming",xp:50},{k:"Reloading",xp:50}]},
+  {n:"Knox Gun Owners Club's Guide to Guns", s:[{k:"Aiming",xp:150},{k:"Reloading",xp:100}]},
+  {n:"Basic Gun Handling (Officer Use Only)", s:[{k:"Aiming",xp:300},{k:"Reloading",xp:300}]},
+  // Mechanics (extra)
+  {n:"OSCC '92", s:[{k:"Mechanics",xp:50}]},
+  {n:"stock cars", s:[{k:"Mechanics",xp:50}]},
+  // Other combat
+  {n:"Mother's Boy", s:[{k:"Short Blade",xp:50}]},
+  {n:"Grady v King", s:[{k:"Lightfooted",xp:50}]},
+  {n:"Mathematical Quadratics and Algebraic Configurations", s:[{k:"Long Blunt",xp:50}]}
+];
+
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function monthIdx(abbr) {
@@ -1232,6 +1390,115 @@ function renderCrops() {
 
 document.getElementById("crop-search").addEventListener("input", renderCrops);
 
+// ========== VHS TAPES ==========
+let vhsSortMode = "skill";
+
+function vhsKey(name) {
+  return "vhs|" + name;
+}
+
+function vhsTotalFound() {
+  let c = 0;
+  VHS.forEach(t => { if (state[vhsKey(t.n)]) c++; });
+  return c;
+}
+
+function updateVhsProgress() {
+  const total = vhsTotalFound();
+  const n = VHS.length;
+  const percent = n ? Math.round((total / n) * 100) : 0;
+  document.getElementById("vhs-progress-label").textContent = `${total} / ${n} found`;
+  document.getElementById("vhs-progress-percent").textContent = `${percent}%`;
+  document.getElementById("vhs-progress-fill").style.width = percent + "%";
+}
+
+// Build the inner HTML for a single tape row (checkbox, name+wiki, skills, recipes)
+function vhsTapeRowHtml(tape) {
+  const checked = !!state[vhsKey(tape.n)] ? "checked" : "";
+  const skills = tape.s.map(x => `<span class="vhs-skill">${x.k} +${x.xp}</span>`).join("");
+  const recipes = (tape.r && tape.r.length)
+    ? `<div class="vhs-recipes">🍴 ${tape.r.join(", ")}</div>`
+    : "";
+  return `
+    <div class="vhs-tape">
+      <label class="vhs-tape-main">
+        <input type="checkbox" data-tape="${encodeURIComponent(tape.n)}" ${checked}>
+        <span class="vhs-tape-info">
+          <a class="vhs-name" href="${wikiUrl(tape.n)}" target="_blank" rel="noopener" title="Open ${tape.n} on PZ Wiki" onclick="event.stopPropagation()">${tape.n}</a>
+          <span class="vhs-skills">${skills}</span>
+          ${recipes}
+        </span>
+      </label>
+    </div>`;
+}
+
+function renderVhs() {
+  const list = document.getElementById("vhs-list");
+  list.innerHTML = "";
+
+  if (vhsSortMode === "name") {
+    // Sorted alphabetically by tape name
+    const sorted = [...VHS].sort((a, b) => a.n.localeCompare(b.n));
+    sorted.forEach(tape => {
+      list.insertAdjacentHTML("beforeend", vhsTapeRowHtml(tape));
+    });
+  } else {
+    // Grouped by skill; multi-skill tapes appear under EACH of their skills
+    const bySkill = {};
+    VHS.forEach(tape => {
+      tape.s.forEach(sk => {
+        if (!bySkill[sk.k]) bySkill[sk.k] = [];
+        bySkill[sk.k].push(tape);
+      });
+    });
+    Object.keys(bySkill).sort().forEach(skill => {
+      const title = document.createElement("div");
+      title.className = "category-title";
+      title.textContent = `${skill} (${bySkill[skill].length})`;
+      list.appendChild(title);
+      bySkill[skill]
+        .sort((a, b) => a.n.localeCompare(b.n))
+        .forEach(tape => list.insertAdjacentHTML("beforeend", vhsTapeRowHtml(tape)));
+    });
+  }
+
+  // Wire up checkboxes (synced across duplicate rows for multi-skill tapes)
+  list.querySelectorAll('input[type="checkbox"][data-tape]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      const name = decodeURIComponent(cb.dataset.tape);
+      state[vhsKey(name)] = cb.checked;
+      // keep any duplicate rows (same tape under another skill) in sync
+      list.querySelectorAll(`input[data-tape="${cb.dataset.tape}"]`).forEach(other => {
+        other.checked = cb.checked;
+      });
+      scheduleSave();
+      updateVhsProgress();
+    });
+  });
+
+  applyVhsSearch();
+  updateVhsProgress();
+}
+
+function applyVhsSearch() {
+  const q = (document.getElementById("vhs-search").value || "").toLowerCase().trim();
+  document.querySelectorAll("#vhs-list .vhs-tape").forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = (!q || text.includes(q)) ? "" : "none";
+  });
+}
+
+document.getElementById("vhs-search").addEventListener("input", applyVhsSearch);
+
+document.querySelectorAll("#vhs-sort-skill, #vhs-sort-name").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.getElementById("vhs-sort-skill").classList.toggle("active", btn.id === "vhs-sort-skill");
+    document.getElementById("vhs-sort-name").classList.toggle("active", btn.id === "vhs-sort-name");
+    vhsSortMode = btn.dataset.mode;
+    renderVhs();
+  });
+});
+
 // ========== MAIN TABS (Skill Books / Growing Calendar) ==========
 document.querySelectorAll(".main-tab").forEach(tab => {
   tab.addEventListener("click", () => {
@@ -1250,6 +1517,7 @@ async function init() {
   await loadProgress();
   renderMonthChips();
   renderCrops();
+  renderVhs();
 }
 
 init();
