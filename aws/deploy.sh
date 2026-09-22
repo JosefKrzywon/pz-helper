@@ -880,14 +880,19 @@ deploy_stack() {
     fi
     
     info "Deploying CloudFormation stack: ${STACK_NAME}"
-    if [ "$USE_CUSTOM_DOMAIN" == "true" ]; then
-        echo "   (CloudFront deployment takes 5-10 minutes...)"
-    fi
+    echo "   This creates ~20 AWS resources. CloudFront alone takes several"
+    echo "   minutes — the progress below updates as each resource is created,"
+    echo "   so please be patient and don't cancel."
     if [ "$BUDGET_LIMIT" -gt 0 ]; then
         echo "   Budget: \$${BUDGET_LIMIT}/month (auto-disable at 100%)"
         echo "   Lambda concurrency limit: ${LAMBDA_CONCURRENCY}"
     fi
-    
+    echo ""
+
+    # Run the deploy in the background so we can show live progress from the
+    # stack events while CloudFormation works.
+    local deploy_log
+    deploy_log=$(mktemp)
     aws cloudformation deploy \
         --template-file "${SCRIPT_DIR}/stack.yaml" \
         --stack-name "${STACK_NAME}" \
@@ -895,9 +900,87 @@ deploy_stack() {
         --capabilities CAPABILITY_NAMED_IAM \
         --parameter-overrides "${params[@]}" \
         --tags "Project=${BUCKET_PREFIX}" \
-        --no-fail-on-empty-changeset
-    
-    ok "Stack deployed successfully"
+        --no-fail-on-empty-changeset > "$deploy_log" 2>&1 &
+    local deploy_pid=$!
+
+    show_stack_progress "$deploy_pid"
+
+    # Reap the deploy and surface any error output
+    if wait "$deploy_pid"; then
+        rm -f "$deploy_log"
+        ok "Stack deployed successfully"
+    else
+        fail "Stack deployment failed"
+        echo ""
+        cat "$deploy_log"
+        rm -f "$deploy_log"
+        exit 1
+    fi
+}
+
+# Friendly label for a CloudFormation resource type
+friendly_resource() {
+    case "$1" in
+        AWS::DynamoDB::Table)               echo "DynamoDB table" ;;
+        AWS::S3::Bucket)                    echo "S3 bucket" ;;
+        AWS::S3::BucketPolicy)              echo "S3 bucket policy" ;;
+        AWS::IAM::Role)                     echo "IAM role" ;;
+        AWS::Lambda::Function)              echo "Lambda function" ;;
+        AWS::Lambda::Url)                   echo "Lambda function URL" ;;
+        AWS::Lambda::Permission)            echo "Lambda permission" ;;
+        AWS::CloudFront::Function)          echo "CloudFront auth function" ;;
+        AWS::CloudFront::OriginAccessControl) echo "CloudFront access control" ;;
+        AWS::CloudFront::Distribution)      echo "CloudFront distribution (this is the slow one, a few minutes)" ;;
+        AWS::Route53::RecordSet)            echo "DNS record" ;;
+        AWS::SNS::Topic)                    echo "SNS alert topic" ;;
+        AWS::SNS::Subscription)             echo "SNS subscription" ;;
+        AWS::Budgets::Budget)               echo "Cost budget" ;;
+        *)                                  echo "$1" ;;
+    esac
+}
+
+# Poll the stack events and print each resource as it completes, until the
+# background deploy process ($1) finishes.
+show_stack_progress() {
+    local deploy_pid="$1"
+    local seen=" "
+    local spin='|/-\'
+    local si=0
+
+    # Give CloudFormation a moment to register the stack
+    sleep 3
+
+    while kill -0 "$deploy_pid" 2>/dev/null; do
+        # Newest-last list of "LogicalId TYPE STATUS"
+        local events
+        events=$(aws cloudformation describe-stack-events \
+            --stack-name "${STACK_NAME}" \
+            --region "${REGION}" \
+            --query 'reverse(StackEvents[].[LogicalResourceId,ResourceType,ResourceStatus])' \
+            --output text 2>/dev/null)
+
+        if [ -n "$events" ]; then
+            while IFS=$'\t' read -r lid rtype status; do
+                [ -z "$lid" ] && continue
+                if [ "$status" == "CREATE_COMPLETE" ] && [ "$rtype" != "AWS::CloudFormation::Stack" ]; then
+                    case "$seen" in
+                        *" ${lid} "*) : ;;   # already reported
+                        *)
+                            seen="${seen}${lid} "
+                            printf "\r\033[K"       # clear spinner line
+                            ok "$(friendly_resource "$rtype")"
+                            ;;
+                    esac
+                fi
+            done <<< "$events"
+        fi
+
+        # spinner so it never looks frozen
+        si=$(( (si + 1) % 4 ))
+        printf "\r  ${spin:$si:1} working..."
+        sleep 4
+    done
+    printf "\r\033[K"   # clear spinner line
 }
 
 # ============================================================
