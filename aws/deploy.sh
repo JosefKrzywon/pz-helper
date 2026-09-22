@@ -920,17 +920,10 @@ upload_website() {
     
     info "Uploading HTML files to ${bucket}..."
 
-    # App pages live in the project root (index.html and variants)
-    for file in "${SCRIPT_DIR}/../"*.html; do
-        if [ -f "$file" ]; then
-            local filename=$(basename "$file")
-            aws s3 cp "$file" "s3://${bucket}/${filename}" \
-                --content-type "text/html; charset=utf-8" --quiet
-            ok "Uploaded ${filename}"
-        fi
-    done
-
-    # AWS-specific pages (e.g. login.html) live in aws/website/
+    # The AWS variant serves ONLY the files in aws/website/ (index.html with the
+    # API + admin panel, and login.html). The other index-*.html files in the
+    # project root belong to different deployment variants (Local, Gist,
+    # Self-Hosted) and must NOT be uploaded here to avoid name clashes.
     for file in "${SCRIPT_DIR}/website/"*.html; do
         if [ -f "$file" ]; then
             local filename=$(basename "$file")
