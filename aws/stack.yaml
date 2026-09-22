@@ -10,15 +10,18 @@ Parameters:
 
   DomainName:
     Type: String
-    Description: 'Custom domain'
+    Description: 'Custom domain (leave empty to use the CloudFront default URL)'
+    Default: ''
 
   HostedZoneId:
     Type: String
-    Description: 'Route53 Hosted Zone ID'
+    Description: 'Route53 Hosted Zone ID (only needed with a custom domain)'
+    Default: ''
 
   CertificateArn:
     Type: String
-    Description: 'ACM Certificate ARN in us-east-1'
+    Description: 'ACM Certificate ARN in us-east-1 (only needed with a custom domain)'
+    Default: ''
 
   AdminUsername:
     Type: String
@@ -55,6 +58,7 @@ Parameters:
     MaxValue: 100
 
 Conditions:
+  UseCustomDomain: !Not [!Equals [!Ref DomainName, '']]
   BudgetEnabled: !Not [!Equals [!Ref BudgetLimit, 0]]
   EmailAlertEnabled: !And
     - !Condition BudgetEnabled
@@ -298,12 +302,16 @@ Resources:
         Enabled: true
         Comment: 'PZ Skill Books'
         DefaultRootObject: index.html
-        Aliases:
-          - !Ref DomainName
-        ViewerCertificate:
-          AcmCertificateArn: !Ref CertificateArn
-          SslSupportMethod: sni-only
-          MinimumProtocolVersion: TLSv1.2_2021
+        Aliases: !If
+          - UseCustomDomain
+          - [!Ref DomainName]
+          - !Ref AWS::NoValue
+        ViewerCertificate: !If
+          - UseCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
         Origins:
           # S3 Origin for static files
           - Id: S3Origin
@@ -375,6 +383,7 @@ Resources:
   # ============================================================
   DNSRecord:
     Type: AWS::Route53::RecordSet
+    Condition: UseCustomDomain
     Properties:
       HostedZoneId: !Ref HostedZoneId
       Name: !Ref DomainName
@@ -385,6 +394,7 @@ Resources:
 
   DNSRecordIPv6:
     Type: AWS::Route53::RecordSet
+    Condition: UseCustomDomain
     Properties:
       HostedZoneId: !Ref HostedZoneId
       Name: !Ref DomainName
@@ -568,7 +578,15 @@ Resources:
 
 Outputs:
   WebsiteURL:
-    Value: !Sub 'https://${DomainName}'
+    Description: 'Public URL of the site'
+    Value: !If
+      - UseCustomDomain
+      - !Sub 'https://${DomainName}'
+      - !Sub 'https://${CloudFrontDistribution.DomainName}'
+
+  CloudFrontDomainName:
+    Description: 'CloudFront default domain (works with or without a custom domain)'
+    Value: !GetAtt CloudFrontDistribution.DomainName
 
   WebsiteBucketName:
     Value: !Ref WebsiteBucket

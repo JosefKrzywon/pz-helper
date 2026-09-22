@@ -933,22 +933,21 @@ upload_website() {
         fi
     done
     
-    # Invalidate CloudFront cache if using custom domain
-    if [ "$USE_CUSTOM_DOMAIN" == "true" ]; then
-        local dist_id=$(aws cloudformation describe-stacks \
-            --stack-name "${STACK_NAME}" \
-            --region "${REGION}" \
-            --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
-            --output text)
-        
-        if [ -n "$dist_id" ] && [ "$dist_id" != "None" ]; then
-            info "Invalidating CloudFront cache..."
-            aws cloudfront create-invalidation \
-                --distribution-id "$dist_id" \
-                --paths "/*" \
-                --output text --query 'Invalidation.Id' > /dev/null
-            ok "Cache invalidated"
-        fi
+    # Invalidate CloudFront cache (there is always a distribution, with or
+    # without a custom domain)
+    local dist_id=$(aws cloudformation describe-stacks \
+        --stack-name "${STACK_NAME}" \
+        --region "${REGION}" \
+        --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
+        --output text)
+
+    if [ -n "$dist_id" ] && [ "$dist_id" != "None" ]; then
+        info "Invalidating CloudFront cache..."
+        aws cloudfront create-invalidation \
+            --distribution-id "$dist_id" \
+            --paths "/*" \
+            --output text --query 'Invalidation.Id' > /dev/null
+        ok "Cache invalidated"
     fi
 }
 
@@ -963,22 +962,26 @@ show_results() {
         --region "${REGION}" \
         --query "Stacks[0].Outputs[?OutputKey=='WebsiteURL'].OutputValue" \
         --output text)
-    
-    local function_url=$(aws cloudformation describe-stacks \
+
+    local cf_domain=$(aws cloudformation describe-stacks \
         --stack-name "${STACK_NAME}" \
         --region "${REGION}" \
-        --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
+        --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomainName'].OutputValue" \
         --output text)
-    
+
     echo -e "${BOLD}Your website is ready:${NC}"
     echo ""
     echo -e "  ${GREEN}${website_url}${NC}"
     echo ""
+    if [ "$USE_CUSTOM_DOMAIN" == "true" ]; then
+        echo "  (CloudFront domain: ${cf_domain})"
+        echo ""
+    fi
     echo "Login:"
     echo "  Username: ${USERNAME}"
     echo "  Password: (the password you entered)"
     echo ""
-    echo "Sync API: ${function_url}"
+    echo "The sync API is served under ${website_url}/api/ (via CloudFront)."
     echo ""
     
     # Show cost protection info
