@@ -51,7 +51,7 @@ your Gist on your behalf, without your GitHub password.
 
 **Verify it worked:** Tick a few items, then reload the page. Your progress
 should remain. You can also confirm a new Gist named
-`PZ Skill Books Checklist - Progress` appears at
+`Zomboid Helper - Progress` appears at
 [gist.github.com](https://gist.github.com).
 
 ## Step 3: Set up on Other Devices
@@ -74,7 +74,7 @@ To sync a second device, reuse the same token and the Gist ID created in Step 2.
 If you need the Gist ID:
 
 1. Go to [gist.github.com](https://gist.github.com).
-2. Find the Gist named `PZ Skill Books Checklist - Progress`.
+2. Find the Gist named `Zomboid Helper - Progress`.
 3. The ID is the last part of the URL.
 
 Or from the first device:

@@ -75,7 +75,7 @@ DATA_DIR=/mnt/nas/pz-data PASSWORD=secret node server.js
 
 ```ini
 [Unit]
-Description=PZ Skill Books Server
+Description=Zomboid Helper Server
 After=network.target
 
 [Service]

@@ -1,18 +1,29 @@
-# 📚 PZ Skill Books Checklist
+# 🧟 Zomboid Helper
 
-A checklist for all 120 skill books in Project Zomboid (Build 42) — plus a growing calendar for farming.
+A companion checklist for Project Zomboid (Build 42): track skill books, VHS
+tapes and recipe magazines, browse a growing calendar, and note your run's
+emergency radio frequency.
 
 ![Screenshot](docs/screenshot.png)
 
 ## ✨ Features
 
-- **24 Skills × 5 Volumes** = 120 books to track
-- **Progress indicator** with percentage
-- **Search and sorting** (by category or A–Z)
-- **Growing calendar** with month filter
-- **Mobile-optimized** responsive design
-- **Export/Import** for backups
-- **Cloud sync** between devices (optional)
+- **Skill Books** — 24 skills × 5 volumes = 120 books to track, with progress
+  indicator, search and sorting (by category or A–Z), plus visible I–V volume
+  markers so you can see which volumes you own at a glance
+- **Growing Calendar** — plant windows, water needs and frost hardiness with a
+  month filter
+- **VHS Tapes** — 61 skill-giving tapes (Build 42.19): the skill(s) and base XP
+  each grants, recipe unlocks, sortable by skill or by tape/series
+- **Recipe Magazines** — all 84 recipe magazines (Build 42.19) grouped by
+  category or by name, showing the recipes each one unlocks
+- **PZ Wiki links** — skill, crop, tape and magazine names link to their wiki page
+- **Emergency Frequency** — note the run's random emergency broadcast frequency
+- **Export/Import** for backups, **mobile-optimized** responsive design
+- **Cloud sync** between devices (optional, depending on the variant)
+
+All four standalone variants share the same feature set — they differ only in
+**how your progress is stored/synced**.
 
 ---
 
@@ -23,7 +34,10 @@ A checklist for all 120 skill books in Project Zomboid (Build 42) — plus a gro
 | **Local** | Browser only | Free | Just open `index.html` |
 | **GitHub Gist** | ✅ Cloud | Free | [Setup Guide](docs/setup-gist.md) |
 | **Self-Hosted** | ✅ LAN/Server | Free | [Server Guide](server/) |
-| **AWS** | ✅ Cloud + Multi-User | ~$0.50/mo | [AWS Guide](aws/) |
+| **AWS** | ✅ Cloud + Multi-User | ~$0 (custom domain ~$0.50/mo) | [AWS Guide](aws/) |
+
+The AWS deployment works **with or without a custom domain** — without one it
+uses the default CloudFront URL, so no Route53 setup is required.
 
 ### Quick Comparison
 
@@ -32,9 +46,12 @@ A checklist for all 120 skill books in Project Zomboid (Build 42) — plus a gro
 | No setup needed | ✅ | | | |
 | Sync across devices | | ✅ | ✅ | ✅ |
 | Multiple users | | | | ✅ |
-| Admin panel | | | | ✅ |
-| Custom domain | | | ✅ | ✅ |
+| Admin panel (users, password reset) | | | | ✅ |
+| Custom domain | | | ✅ | optional |
 | Password protection | | | ✅ | ✅ |
+| Skill Books / Growing Calendar | ✅ | ✅ | ✅ | ✅ |
+| VHS Tapes / Recipe Magazines | ✅ | ✅ | ✅ | ✅ |
+| Emergency Frequency | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -44,8 +61,13 @@ A checklist for all 120 skill books in Project Zomboid (Build 42) — plus a gro
 |------|-------------|
 | `index.html` | Local version (localStorage) |
 | `index-gist.html` | GitHub Gist sync |
-| `index-server.html` | Self-hosted server |
-| `aws/website/` | AWS version |
+| `index-server.html` | Self-hosted server sync |
+| `index-lambda.html` | Standalone cloud sync (Lambda backend) |
+| `aws/website/` | AWS version (CloudFront + Lambda + DynamoDB, with login & admin panel) |
+
+All variants share the same feature set (Skill Books, Growing Calendar, VHS
+Tapes, Recipe Magazines, Emergency Frequency). They differ only in where your
+progress is saved.
 
 ---
 

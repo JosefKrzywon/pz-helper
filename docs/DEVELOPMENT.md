@@ -31,7 +31,12 @@ pz-helper/
 | `/index.html` | Local/offline use |
 | `/index-gist.html` | GitHub Gist sync |
 | `/index-server.html` | Self-hosted server |
+| `/index-lambda.html` | Standalone cloud sync |
 | `/aws/website/index.html` | AWS deployment |
+
+Because the same features are duplicated across these files, a change to the
+skill/crop/VHS/magazine data or the UI usually needs to be applied to **each**
+variant you use.
 
 ---
 
@@ -129,6 +134,33 @@ const CROPS = [
 Use 3-letter English abbreviations: `Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, `Dec`
 
 Ranges use an en-dash: `Mar–May` (not hyphen)
+
+---
+
+## Customizing VHS Tapes and Recipe Magazines
+
+Two more data sets drive the **VHS Tapes** and **Recipe Magazines** tabs:
+
+```javascript
+// VHS tapes: n = name, s = [{k: skill, xp: base XP}], r = [recipe unlocks] (optional)
+const VHS = [
+  {n:"Woodcraft E1", s:[{k:"Carpentry", xp:250}]},
+  {n:"The Cook Show E1", s:[{k:"Cooking", xp:350}], r:["Cake Batter"]},
+  // ...
+];
+
+// Recipe magazines: n = name, c = category, r = [recipes it unlocks]
+const RECIPE_MAGS = [
+  {n:"Good Cooking - June 1993", c:"Cooking", r:["Cake Batter", "Pie Dough"]},
+  // ...
+];
+```
+
+A tape may list more than one skill in `s` (multi-skill tapes appear under each
+skill). Recipe magazines only unlock recipes — they do not grant skill XP, so
+they have no `xp` field. Progress for these tabs is stored under the `vhs|` and
+`mag|` key prefixes (the emergency frequency uses `meta|`), which keeps them
+separate from the skill-book progress count.
 
 ---
 
