@@ -485,48 +485,111 @@ check_existing_resources() {
 }
 
 cleanup_resources() {
-    # Delete CloudFormation stack first (it will delete most resources)
+    # 1) Empty the S3 buckets first. A CloudFormation stack delete fails if the
+    #    website bucket still contains objects, so clear it up front.
+    if aws s3api head-bucket --bucket "${WEBSITE_BUCKET}" 2>/dev/null; then
+        info "Emptying website bucket..."
+        aws s3 rm "s3://${WEBSITE_BUCKET}" --recursive --quiet 2>/dev/null || true
+    fi
+    if aws s3api head-bucket --bucket "${ARTIFACT_BUCKET}" 2>/dev/null; then
+        info "Emptying artifact bucket..."
+        aws s3 rm "s3://${ARTIFACT_BUCKET}" --recursive --quiet 2>/dev/null || true
+    fi
+
+    # 2) Delete the CloudFormation stack with live progress (this removes most
+    #    resources, including the slow CloudFront distribution).
     if aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" &>/dev/null; then
-        info "Deleting CloudFormation stack..."
-        aws cloudformation delete-stack --stack-name "${STACK_NAME}" --region "${REGION}"
-        echo -n "Waiting for stack deletion"
-        while aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" &>/dev/null; do
-            echo -n "."
-            sleep 5
-        done
+        info "Deleting CloudFormation stack: ${STACK_NAME}"
+        echo "   Removing ~20 resources. CloudFront takes several minutes."
         echo ""
+        aws cloudformation delete-stack --stack-name "${STACK_NAME}" --region "${REGION}"
+        show_delete_progress
         ok "Stack deleted"
     fi
-    
-    # Empty and delete artifact bucket
+
+    # 3) Delete the artifact bucket (it lives outside the stack)
     if aws s3api head-bucket --bucket "${ARTIFACT_BUCKET}" 2>/dev/null; then
         info "Deleting artifact bucket..."
-        aws s3 rm "s3://${ARTIFACT_BUCKET}" --recursive --quiet 2>/dev/null || true
         aws s3api delete-bucket --bucket "${ARTIFACT_BUCKET}" --region "${REGION}" 2>/dev/null || true
         ok "Artifact bucket deleted"
     fi
-    
-    # Empty and delete website bucket (if exists outside stack)
-    if aws s3api head-bucket --bucket "${WEBSITE_BUCKET}" 2>/dev/null; then
-        info "Deleting website bucket..."
-        aws s3 rm "s3://${WEBSITE_BUCKET}" --recursive --quiet 2>/dev/null || true
-        aws s3api delete-bucket --bucket "${WEBSITE_BUCKET}" --region "${REGION}" 2>/dev/null || true
-        ok "Website bucket deleted"
-    fi
-    
-    # Delete certificate
+
+    # 4) Delete the ACM certificate and its Route53 validation CNAME (custom domain only)
     if [ -n "$DOMAIN_NAME" ]; then
         local cert=$(aws acm list-certificates \
             --region us-east-1 \
             --query "CertificateSummaryList[?DomainName=='${DOMAIN_NAME}'].CertificateArn" \
             --output text 2>/dev/null)
         if [ -n "$cert" ] && [ "$cert" != "None" ]; then
+            # Remove the DNS validation record we created, if we know the zone
+            if [ -n "$HOSTED_ZONE_ID" ]; then
+                local vrec=$(aws acm describe-certificate --certificate-arn "$cert" --region us-east-1 \
+                    --query 'Certificate.DomainValidationOptions[0].ResourceRecord' --output json 2>/dev/null)
+                local vname=$(echo "$vrec" | grep -o '"Name": *"[^"]*"' | cut -d'"' -f4)
+                local vval=$(echo "$vrec" | grep -o '"Value": *"[^"]*"' | cut -d'"' -f4)
+                if [ -n "$vname" ] && [ -n "$vval" ]; then
+                    info "Removing certificate DNS validation record..."
+                    aws route53 change-resource-record-sets --hosted-zone-id "${HOSTED_ZONE_ID}" \
+                        --change-batch "{\"Changes\":[{\"Action\":\"DELETE\",\"ResourceRecordSet\":{\"Name\":\"${vname}\",\"Type\":\"CNAME\",\"TTL\":300,\"ResourceRecords\":[{\"Value\":\"${vval}\"}]}}]}" \
+                        &>/dev/null || true
+                fi
+            fi
             info "Deleting certificate..."
-            # Need to wait a bit for CloudFront to release it
-            aws acm delete-certificate --certificate-arn "$cert" --region us-east-1 2>/dev/null || \
-                warn "Could not delete certificate (may be in use). Delete manually later."
+            # CloudFront may need a moment to release the cert after stack delete
+            local attempts=0
+            until aws acm delete-certificate --certificate-arn "$cert" --region us-east-1 2>/dev/null; do
+                attempts=$((attempts + 1))
+                if [ $attempts -ge 6 ]; then
+                    warn "Could not delete certificate yet (still in use). Delete it manually later."
+                    break
+                fi
+                echo -n "."
+                sleep 10
+            done
+            [ $attempts -lt 6 ] && ok "Certificate deleted"
         fi
     fi
+}
+
+# Poll stack-delete events and print each resource as it is removed, until the
+# stack no longer exists (or delete fails).
+show_delete_progress() {
+    local seen=" "
+    local spin='|/-\'
+    local si=0
+    sleep 3
+    while aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" &>/dev/null; do
+        local status
+        status=$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" \
+            --query 'Stacks[0].StackStatus' --output text 2>/dev/null)
+        local events
+        events=$(aws cloudformation describe-stack-events \
+            --stack-name "${STACK_NAME}" --region "${REGION}" \
+            --query 'reverse(StackEvents[].[LogicalResourceId,ResourceType,ResourceStatus])' \
+            --output text 2>/dev/null)
+        if [ -n "$events" ]; then
+            while IFS=$'\t' read -r lid rtype rstatus; do
+                [ -z "$lid" ] && continue
+                if [ "$rstatus" == "DELETE_COMPLETE" ] && [ "$rtype" != "AWS::CloudFormation::Stack" ]; then
+                    case "$seen" in
+                        *" ${lid} "*) : ;;
+                        *) seen="${seen}${lid} "
+                           printf "\r\033[K"
+                           ok "removed $(friendly_resource "$rtype")" ;;
+                    esac
+                fi
+            done <<< "$events"
+        fi
+        if [ "$status" == "DELETE_FAILED" ]; then
+            printf "\r\033[K"
+            fail "Stack deletion failed — check the AWS console for stuck resources."
+            break
+        fi
+        si=$(( (si + 1) % 4 ))
+        printf "\r  ${spin:$si:1} deleting..."
+        sleep 4
+    done
+    printf "\r\033[K"
 }
 
 # ============================================================
