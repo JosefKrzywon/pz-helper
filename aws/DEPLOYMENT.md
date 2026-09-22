@@ -4,7 +4,7 @@ A detailed reference for deploying, operating, and tearing down the PZ Skill Boo
 AWS environment.
 
 Last updated: 2026-09-22
-Version: 1.3
+Version: 1.4
 
 ---
 
@@ -602,6 +602,16 @@ aws cloudformation describe-stacks --stack-name pz-helper --region $REGION \
 ---
 
 ## Changelog
+
+### 1.4 (2026-09-22)
+
+- **Tab navigation:** the app now separates *Skill Books* and *Growing Calendar*
+  into two tabs instead of one long scrolling page.
+- **Volume markers:** each skill shows five I–V badges in its header (filled =
+  owned, empty = missing), so you can see which books you have without
+  expanding the card.
+- **Wiki links:** skill names and crop names link to their PZ Wiki page
+  (`pzwiki.net`), opening in a new tab.
 
 ### 1.3 (2026-09-22)
 

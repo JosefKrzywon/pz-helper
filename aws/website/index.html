@@ -139,12 +139,45 @@
     font-weight: 600;
     font-size: 1em;
   }
+  .skill-link {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--text-dim);
+  }
+  .skill-link:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
   .skill-count {
     font-size: 0.8em;
     color: var(--text-dim);
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+  .vol-markers {
+    display: inline-flex;
+    gap: 3px;
+  }
+  .vol-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    font-size: 0.72em;
+    line-height: 1;
+    color: var(--text-dim);
+    background: transparent;
+  }
+  .vol-marker.owned {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #111;
+    font-weight: 700;
   }
   .skill-count.complete {
     color: var(--accent);
@@ -304,6 +337,15 @@
     font-weight: 600;
     font-size: 0.98em;
   }
+  .crop-link {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--text-dim);
+  }
+  .crop-link:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
   .crop-type {
     font-size: 0.72em;
     color: var(--text-dim);
@@ -462,6 +504,37 @@
     font-weight: 600;
     cursor: pointer;
   }
+  .main-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .main-tab {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .main-tab:hover {
+    color: var(--text);
+  }
+  .main-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #111;
+  }
+  .tab-panel {
+    display: none;
+  }
+  .tab-panel.active {
+    display: block;
+  }
 </style>
 </head>
 <body>
@@ -477,6 +550,12 @@
 <div class="subtitle">Checklist — 24 Skills, 5 Volumes each (I–V)</div>
 <div class="sync-status" id="sync-status">✓ Synced</div>
 
+<div class="main-tabs">
+  <button class="main-tab active" id="tab-skills" data-panel="panel-skills">📚 Skill Books</button>
+  <button class="main-tab" id="tab-farming" data-panel="panel-farming">🌱 Growing Calendar</button>
+</div>
+
+<div class="tab-panel active" id="panel-skills">
 <div class="progress-bar-wrap">
   <div class="progress-text">
     <span id="progress-label">0 / 120 found</span>
@@ -504,7 +583,9 @@
 
 <button class="reset-btn" id="reset-btn">Reset all checkmarks</button>
 <div class="note">Progress is automatically synced to the server.</div>
+</div>
 
+<div class="tab-panel" id="panel-farming">
 <div class="section-title">🌱 Growing Calendar (Build 42)</div>
 <div class="search-wrap">
   <input type="text" id="crop-search" placeholder="Search crop...">
@@ -512,6 +593,7 @@
 <div class="month-chips" id="month-chips"></div>
 <div class="crop-count" id="crop-count"></div>
 <div id="crop-list"></div>
+</div>
 
 <!-- Admin Modal -->
 <div class="modal-overlay" id="admin-modal">
@@ -661,6 +743,21 @@ function allSkillsFlat() {
   return all;
 }
 
+function wikiUrl(name) {
+  // PZ Wiki uses MediaWiki: spaces -> underscores
+  return "https://pzwiki.net/wiki/" + encodeURIComponent(name.replace(/ /g, "_"));
+}
+
+// Small I–V badges showing which volumes are owned (filled) vs missing (empty)
+function buildVolMarkersHtml(skill, roman) {
+  let html = "";
+  for (let v = 1; v <= 5; v++) {
+    const owned = !!state[volKey(skill, v)];
+    html += `<span class="vol-marker${owned ? " owned" : ""}" title="Vol. ${roman[v-1]}${owned ? " (owned)" : " (missing)"}">${roman[v-1]}</span>`;
+  }
+  return html;
+}
+
 function buildSkillCard(list, skill, roman) {
   const card = document.createElement("div");
   card.className = "skill-card";
@@ -669,14 +766,22 @@ function buildSkillCard(list, skill, roman) {
   const header = document.createElement("div");
   header.className = "skill-header";
 
-  const name = document.createElement("div");
-  name.className = "skill-name";
+  const name = document.createElement("a");
+  name.className = "skill-name skill-link";
   name.textContent = skill;
+  name.href = wikiUrl(skill);
+  name.target = "_blank";
+  name.rel = "noopener";
+  name.title = "Open " + skill + " on PZ Wiki";
+  // Don't let clicking the link toggle the card open/closed
+  name.addEventListener("click", (e) => { e.stopPropagation(); });
 
   const countWrap = document.createElement("div");
   countWrap.className = "skill-count";
   const checkedCount = countChecked(skill);
-  countWrap.innerHTML = `<span class="count-text">${checkedCount}/5</span><span class="chevron">▶</span>`;
+  // Visible volume markers (I–V) so you can see owned books without expanding
+  const markers = buildVolMarkersHtml(skill, roman);
+  countWrap.innerHTML = `<span class="vol-markers">${markers}</span><span class="count-text">${checkedCount}/5</span><span class="chevron">▶</span>`;
   if (checkedCount === 5) countWrap.classList.add("complete");
 
   header.appendChild(name);
@@ -751,6 +856,11 @@ function updateSkillHeader(card, skill) {
   const countWrap = card.querySelector(".skill-count");
   countText.textContent = `${checkedCount}/5`;
   countWrap.classList.toggle("complete", checkedCount === 5);
+
+  // Refresh the visible I–V markers
+  const roman = ["I","II","III","IV","V"];
+  const markerWrap = card.querySelector(".vol-markers");
+  if (markerWrap) markerWrap.innerHTML = buildVolMarkersHtml(skill, roman);
 
   const rows = card.querySelectorAll(".volume-row");
   rows.forEach((row, i) => {
@@ -1100,9 +1210,11 @@ function renderCrops() {
   filtered.forEach(c => {
     const card = document.createElement("div");
     card.className = "crop-card";
+    // Easter egg: cilantro tastes like soap to some people (OR6A2 gene) :)
+    const cropHref = c.n === "Cilantro" ? "https://pzwiki.net/wiki/Soap" : wikiUrl(c.n);
     card.innerHTML = `
       <div class="crop-top">
-        <span class="crop-name">${c.n}</span>
+        <a class="crop-name crop-link" href="${cropHref}" target="_blank" rel="noopener" title="Open ${c.n} on PZ Wiki">${c.n}</a>
         <span class="crop-type">${c.t}</span>
       </div>
       <div class="crop-meta">
@@ -1119,6 +1231,16 @@ function renderCrops() {
 }
 
 document.getElementById("crop-search").addEventListener("input", renderCrops);
+
+// ========== MAIN TABS (Skill Books / Growing Calendar) ==========
+document.querySelectorAll(".main-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".main-tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById(tab.dataset.panel).classList.add("active");
+  });
+});
 
 // ========== INIT ==========
 
