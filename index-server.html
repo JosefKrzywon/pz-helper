@@ -179,6 +179,29 @@
   .crop-meta b { color: var(--text); font-weight: 500; }
   .crop-hardy { color: var(--accent); }
   .crop-count { font-size: 0.8em; color: var(--text-dim); margin-bottom: 10px; }
+
+  .skill-link { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--text-dim); }
+  .skill-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  .vol-markers { display: inline-flex; gap: 3px; }
+  .vol-marker { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 3px; border: 1px solid var(--border); font-size: 0.72em; line-height: 1; color: var(--text-dim); background: transparent; }
+  .vol-marker.owned { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; }
+  .crop-link { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--text-dim); }
+  .crop-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  .vhs-tape { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+  .vhs-tape-main { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; cursor: pointer; }
+  .vhs-tape-main input[type="checkbox"] { margin-top: 3px; flex-shrink: 0; }
+  .vhs-tape-info { display: flex; flex-direction: column; gap: 4px; }
+  .vhs-name { font-weight: 600; color: inherit; text-decoration: none; border-bottom: 1px dotted var(--text-dim); align-self: flex-start; }
+  .vhs-name:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  .vhs-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .vhs-skill { font-size: 0.75em; padding: 2px 7px; border-radius: 4px; background: var(--accent); color: #111; font-weight: 600; }
+  .vhs-recipes { font-size: 0.78em; color: var(--text-dim); }
+  .mag-cat { font-size: 0.75em; padding: 2px 7px; border-radius: 4px; background: var(--border); color: var(--text); font-weight: 600; }
+  .emergency-freq { margin: 8px 0 12px; font-size: 1.05em; color: var(--text-dim); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .emergency-freq #freq-value { color: var(--text-dim); font-style: italic; }
+  .emergency-freq #freq-value.set { color: var(--accent); font-style: normal; font-weight: 700; font-family: monospace; font-size: 1.6em; letter-spacing: 0.03em; }
+  .freq-btn { padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-size: 0.9em; cursor: pointer; }
+  .freq-btn:hover { color: var(--text); border-color: var(--text-dim); }
 </style>
 </head>
 <body>
@@ -187,6 +210,8 @@
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="skills">📚 Skill Books</button>
   <button class="tab-btn" data-tab="farming">🌱 Farming Calendar</button>
+  <button class="tab-btn" data-tab="vhs">📼 VHS Tapes</button>
+  <button class="tab-btn" data-tab="mags">📰 Recipe Magazines</button>
 </nav>
 
 <!-- Skills Tab -->
@@ -197,6 +222,11 @@
   <div class="sync-status">
     <span class="sync-dot" id="sync-dot"></span>
     <span id="sync-text">Connecting...</span>
+  </div>
+  <div class="emergency-freq">
+    📻 Emergency Frequency:
+    <span id="freq-value">not set</span>
+    <button class="freq-btn" id="freq-btn">Set</button>
   </div>
 
   <div class="progress-bar-wrap">
@@ -233,6 +263,48 @@
   <div class="month-chips" id="month-chips"></div>
   <div class="crop-count" id="crop-count"></div>
   <div id="crop-list"></div>
+</div>
+
+<!-- VHS Tapes Tab -->
+<div id="tab-vhs" class="tab-content">
+  <h1 class="section-title">📼 VHS Tapes (Build 42)</h1>
+  <div class="progress-bar-wrap">
+    <div class="progress-text">
+      <span id="vhs-progress-label">0 / 0 found</span>
+      <span id="vhs-progress-percent">0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="vhs-progress-fill"></div></div>
+  </div>
+  <div class="search-wrap">
+    <input type="text" id="vhs-search" placeholder="Search VHS tape or skill...">
+  </div>
+  <div class="sort-toggle">
+    <button class="sort-btn active" id="vhs-sort-skill" data-mode="skill">By Skill</button>
+    <button class="sort-btn" id="vhs-sort-name" data-mode="name">By Tape / Series</button>
+  </div>
+  <div id="vhs-list"></div>
+  <div class="note">Skill XP shown is the base value (before traits, professions and multipliers). VHS XP stops working once a skill reaches the media XP cap (default level 3).</div>
+</div>
+
+<!-- Recipe Magazines Tab -->
+<div id="tab-mags" class="tab-content">
+  <h1 class="section-title">📰 Recipe Magazines (Build 42)</h1>
+  <div class="progress-bar-wrap">
+    <div class="progress-text">
+      <span id="mags-progress-label">0 / 0 found</span>
+      <span id="mags-progress-percent">0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="mags-progress-fill"></div></div>
+  </div>
+  <div class="search-wrap">
+    <input type="text" id="mags-search" placeholder="Search magazine or recipe...">
+  </div>
+  <div class="sort-toggle">
+    <button class="sort-btn active" id="mags-sort-cat" data-mode="cat">By Category</button>
+    <button class="sort-btn" id="mags-sort-name" data-mode="name">By Name</button>
+  </div>
+  <div id="mags-list"></div>
+  <div class="note">Recipe magazines permanently unlock the listed crafting recipes when read. They do not grant skill XP.</div>
 </div>
 
 <script>
@@ -320,7 +392,9 @@ function countChecked(skill) {
 
 function totalChecked() {
   let c = 0;
-  Object.keys(state).forEach(k => { if (state[k]) c++; });
+  Object.keys(state).forEach(k => {
+    if (state[k] && !k.startsWith("vhs|") && !k.startsWith("mag|") && !k.startsWith("meta|")) c++;
+  });
   return c;
 }
 
@@ -341,14 +415,19 @@ function buildSkillCard(list, skill, roman) {
   const header = document.createElement("div");
   header.className = "skill-header";
 
-  const name = document.createElement("div");
-  name.className = "skill-name";
+  const name = document.createElement("a");
+  name.className = "skill-name skill-link";
   name.textContent = skill;
+  name.href = wikiUrl(skill);
+  name.target = "_blank";
+  name.rel = "noopener";
+  name.title = "Open " + skill + " on PZ Wiki";
+  name.addEventListener("click", (e) => { e.stopPropagation(); });
 
   const countWrap = document.createElement("div");
   countWrap.className = "skill-count";
   const checkedCount = countChecked(skill);
-  countWrap.innerHTML = `<span class="count-text">${checkedCount}/5</span><span class="chevron">▶</span>`;
+  countWrap.innerHTML = `<span class="vol-markers">${buildVolMarkersHtml(skill, roman)}</span><span class="count-text">${checkedCount}/5</span><span class="chevron">▶</span>`;
   if (checkedCount === 5) countWrap.classList.add("complete");
 
   header.appendChild(name);
@@ -415,6 +494,9 @@ function updateSkillHeader(card, skill) {
   const checkedCount = countChecked(skill);
   card.querySelector(".count-text").textContent = `${checkedCount}/5`;
   card.querySelector(".skill-count").classList.toggle("complete", checkedCount === 5);
+
+  const markerWrap = card.querySelector(".vol-markers");
+  if (markerWrap) markerWrap.innerHTML = buildVolMarkersHtml(skill, ["I","II","III","IV","V"]);
 
   card.querySelectorAll(".volume-row").forEach((row, i) => {
     const checked = !!state[volKey(skill, i + 1)];
@@ -586,9 +668,10 @@ function renderCrops() {
   filtered.forEach(c => {
     const card = document.createElement("div");
     card.className = "crop-card";
+    const cropHref = c.n === "Cilantro" ? "https://pzwiki.net/wiki/Soap" : wikiUrl(c.n);
     card.innerHTML = `
       <div class="crop-top">
-        <span class="crop-name">${c.n}</span>
+        <a class="crop-name crop-link" href="${cropHref}" target="_blank" rel="noopener" title="Open ${c.n} on PZ Wiki">${c.n}</a>
         <span class="crop-type">${c.t}</span>
       </div>
       <div class="crop-meta">
@@ -607,6 +690,339 @@ function renderCrops() {
 document.getElementById("crop-search").addEventListener("input", renderCrops);
 
 /* ========== TAB NAVIGATION ========== */
+
+// ========== VHS + RECIPE MAGAZINE DATA (Build 42.19) ==========
+const VHS = [
+  // Woodcraft series (Carpentry)
+  {n:"Woodcraft E1", s:[{k:"Carpentry",xp:250}]},
+  {n:"Woodcraft E2", s:[{k:"Carpentry",xp:200}]},
+  {n:"Woodcraft E3", s:[{k:"Carpentry",xp:250}]},
+  {n:"Woodcraft E4", s:[{k:"Carpentry",xp:300}]},
+  {n:"Woodcraft E5", s:[{k:"Carpentry",xp:150}]},
+  {n:"Woodcraft E6", s:[{k:"Carpentry",xp:250}]},
+  {n:"Woodcraft E7", s:[{k:"Carpentry",xp:250}]},
+  // The Cook Show series (Cooking)
+  {n:"The Cook Show E1", s:[{k:"Cooking",xp:350}], r:["Make Cake Batter"]},
+  {n:"The Cook Show E2", s:[{k:"Cooking",xp:400}]},
+  {n:"The Cook Show E3", s:[{k:"Cooking",xp:250}]},
+  {n:"The Cook Show E4", s:[{k:"Cooking",xp:200}]},
+  {n:"The Cook Show E5", s:[{k:"Cooking",xp:200}]},
+  {n:"The Cook Show E6", s:[{k:"Cooking",xp:250}]},
+  {n:"The Cook Show E7", s:[{k:"Cooking",xp:300}], r:["Prepare Pie Dough"]},
+  // Exposure Survival series (multi-skill)
+  {n:"Exposure Survival E1", s:[{k:"Fishing",xp:200}], r:["Make Fishing Rod"]},
+  {n:"Exposure Survival E2", s:[{k:"Fishing",xp:300}]},
+  {n:"Exposure Survival E3", s:[{k:"Agriculture",xp:350}]},
+  {n:"Exposure Survival E4", s:[{k:"Carpentry",xp:300}]},
+  {n:"Exposure Survival E5", s:[{k:"Carpentry",xp:200},{k:"Foraging",xp:50}]},
+  {n:"Exposure Survival E6", s:[{k:"Trapping",xp:500}], r:["Make Crate Trap"]},
+  {n:"Exposure Survival E7", s:[{k:"Foraging",xp:350}]},
+  {n:"Exposure Survival E8", s:[{k:"Carpentry",xp:350}]},
+  // Carzone series (Mechanics)
+  {n:"Carzone E1", s:[{k:"Mechanics",xp:300}]},
+  {n:"Carzone E2", s:[{k:"Mechanics",xp:300}]},
+  {n:"Carzone E3", s:[{k:"Mechanics",xp:300}]},
+  // Agriculture tapes
+  {n:"Tree Planting Guide", s:[{k:"Agriculture",xp:300}]},
+  {n:"Growing Fruit and Veg at Home 1", s:[{k:"Agriculture",xp:300}], r:["Cabbage Season","Potato Season","Radish Season","Carrot Season","Onion Season","Broccoli Season","Strawberry Season","Tomato Season"]},
+  {n:"Growing Fruit and Veg at Home 2", s:[{k:"Agriculture",xp:300}], r:["Green Pea Season","Soybean Season","Kale Season","Garlic Season","Sweet Potato Season","Corn Season"]},
+  {n:"Growing Herbs at Home", s:[{k:"Agriculture",xp:300}], r:["Basil Season","Chives Season","Cilantro Season","Oregano Season","Parsley Season","Sage Season","Rosemary Season","Thyme Season"]},
+  {n:"Controlling Nasty Crop Pests and Diseases", s:[{k:"Agriculture",xp:150}], r:["Make Mildew Cure","Make Flies Cure","Make Aphids Cure"]},
+  // Fishing
+  {n:"Better Fishing With Jason Master", s:[{k:"Fishing",xp:300}], r:["Make Fishing Rod","Fix Fishing Rod"]},
+  // Tailoring
+  {n:"A Stitch in Time", s:[{k:"Tailoring",xp:300}]},
+  {n:"Granny Nani", s:[{k:"Tailoring",xp:300}]},
+  {n:"Tailoring 101", s:[{k:"Tailoring",xp:300}]},
+  // Welding
+  {n:"Home Welding Guide", s:[{k:"Welding",xp:300}]},
+  {n:"Adefope Fencing Special", s:[{k:"Welding",xp:450}], r:["Metal Fences (various)"]},
+  {n:"nof vid", s:[{k:"Welding",xp:400}], r:["Metal Floor","Metal Wall (Basic)"]},
+  {n:"no 9", s:[{k:"Welding",xp:450}], r:["Metal Fences (various)"]},
+  {n:"Z-Squad S2.03", s:[{k:"Mechanics",xp:50},{k:"Welding",xp:50}]},
+  // First Aid
+  {n:"Emergency First Aid", s:[{k:"First Aid",xp:300}]},
+  {n:"Combat Wound Management", s:[{k:"First Aid",xp:350}]},
+  {n:"Rosewood Medical First Aid", s:[{k:"First Aid",xp:300}]},
+  {n:"RMFA", s:[{k:"First Aid",xp:300}]},
+  // Electrical
+  {n:"How Electricity Works", s:[{k:"Electrical",xp:300}]},
+  {n:"Muldraugh AV Club", s:[{k:"Electrical",xp:300}], r:["Make Makeshift Radio"]},
+  {n:"TV repair", s:[{k:"Electrical",xp:300}]},
+  // Pottery
+  {n:"Pottery for Anyone", s:[{k:"Pottery",xp:250}]},
+  {n:"Working Clay at Home", s:[{k:"Pottery",xp:300}]},
+  // Blacksmithing
+  {n:"From Ore to Store", s:[{k:"Blacksmithing",xp:350}]},
+  // Knapping
+  {n:"Knapping: The Ancient Art", s:[{k:"Knapping",xp:300}]},
+  // Animal Care
+  {n:"A Day on the Farm", s:[{k:"Animal Care",xp:300}]},
+  {n:"The Petting Zoo", s:[{k:"Animal Care",xp:300}]},
+  // Cooking (extra)
+  {n:"Making Sushi at Home", s:[{k:"Cooking",xp:250}], r:["Prepare Sushi","Prepare Maki","Prepare Onigiri","Prepare Breaded Shrimp","Make 4 Cabbage Rolls"]},
+  // Aiming / Reloading
+  {n:"Dead Wrong", s:[{k:"Aiming",xp:50},{k:"Reloading",xp:50}]},
+  {n:"Knox Gun Owners Club's Guide to Guns", s:[{k:"Aiming",xp:150},{k:"Reloading",xp:100}]},
+  {n:"Basic Gun Handling (Officer Use Only)", s:[{k:"Aiming",xp:300},{k:"Reloading",xp:300}]},
+  // Mechanics (extra)
+  {n:"OSCC '92", s:[{k:"Mechanics",xp:50}]},
+  {n:"stock cars", s:[{k:"Mechanics",xp:50}]},
+  // Other combat
+  {n:"Mother's Boy", s:[{k:"Short Blade",xp:50}]},
+  {n:"Grady v King", s:[{k:"Lightfooted",xp:50}]},
+  {n:"Mathematical Quadratics and Algebraic Configurations", s:[{k:"Long Blunt",xp:50}]}
+];
+
+const RECIPE_MAGS = [
+  {n:"Alpine Explorers", c:"Tailoring", r:["Advanced Framepack Frame", "Advanced Large Framepack Frame", "Advanced Framepack", "Advanced Large Framepack", "Sheepskin Pants"]},
+  {n:"American Bladecraft", c:"Blacksmithing", r:["Meat Cleaver Blade", "Hunting Knife Blade", "Machete Blade", "Hand Axe Head", "Wood Axe Head", "Old Axe Head", "Small Knife", "Large Knife Blade", "Fleshing Tool"]},
+  {n:"American Homesteading", c:"Farming", r:["Jar"]},
+  {n:"Ancient Tailoring", c:"Tailoring", r:["Bone Awl", "Bone Sewing Needle", "Hide Hoodie", "Hide Robe", "Hide Pants", "Twine Shoes"]},
+  {n:"Angler USA - June 1993", c:"Fishing", r:["Make Fishing Rod", "Fix Fishing Rod", "Chum"]},
+  {n:"Angler USA - May 1993", c:"Fishing", r:["Fishing Net", "Get Wire Back"]},
+  {n:"Armor in the Iron Age", c:"Armor", r:["Forearm Armor", "Body Armor", "Simple Shoulder Armor", "Thigh Armor", "Shin Armor", "Metal Mask", "Buckle"]},
+  {n:"Bloody Japanese Wrestling Deathmatch!", c:"Weapons", r:["Barbed Wire Weapon"]},
+  {n:"Blooms and Blossoms", c:"Farming", r:["Chamomile (growing season)", "Marigold (growing season)", "Sunflower (growing season)", "Rose (growing season)", "Poppy (growing season)", "Lavender (growing season)"]},
+  {n:"Blunt Forge", c:"Blacksmithing", r:["Clawhammer Head", "Crowbar", "Sledgehammer Head", "Ball Peen Hammer Head", "Club Hammer Head", "Pick Axe Head"]},
+  {n:"Bottle Making at Home", c:"Glassmaking", r:["Glass Bottle", "Glass Jar"]},
+  {n:"Carlow Crystal Guide", c:"Glassmaking", r:["Drinking Glass", "Glass Panel"]},
+  {n:"Cowboy Living", c:"Tailoring", r:["Holster", "Double Holster", "Western Boots", "Furred Hide Coat", "Furred Hide Jacket", "Leather Pants", "Sheepskin Vest"]},
+  {n:"Cropping for Cash", c:"Farming", r:["Barley (growing season)", "Corn (growing season)", "Flax (growing season)", "Rye (growing season)", "Soybean (growing season)", "Sugar Beet (growing season)", "Tobacco (growing season)", "Wheat (growing season)"]},
+  {n:"Cultures of Prehistory", c:"Knapping", r:["Bone Fishing Hook", "Stone Awl", "Stone Chisel", "Stone Drill", "Crude Whetstone", "Stone Blade Saw", "Whistle"]},
+  {n:"Delicious Meals - June 1993", c:"Cooking", r:["Fried Shrimp", "Fried Onion Rings", "Cabbage Rolls", "Guacamole"]},
+  {n:"Early Indigenous Armor - An In-Depth Study", c:"Armor", r:["Bone Body Armor", "Bone Choker", "Bone Forearm Armor", "Bone Shin Armor", "Bone Shoulder Armor", "Bone Thigh Armor", "Wood Body Armor", "Wood Forearm Armor", "Wood Shin Armor", "Wood Shoulder Armor", "Wood Thigh Armor"]},
+  {n:"European Armor in the Late Medieval Era", c:"Armor", r:["Shoulder Armor", "Articulated Thigh Armor", "Codpiece", "Gorget", "Full Metal Forearm Armor", "Articulated Shin Armor", "Armored Gloves", "Metal Helmet", "Coat of Plates", "Buckle"]},
+  {n:"Everyday Smithing - April 1993", c:"Blacksmithing", r:["Steel Sheet", "Small Steel Sheet", "Saw", "Spade Head", "Gardening Trowel", "Garden Hoe Head", "Hand Scythe Head", "Sheep Shears", "Scythe Head", "Lantern"]},
+  {n:"Everyday Smithing - June 1993", c:"Blacksmithing", r:["Tongs", "Heading Tool", "Draw Plate", "Nails", "Smithing Hammer Head", "Masons Chisel", "Masons Trowel", "Metalworking Chisel", "Metalworking Punch", "Metalworking Pliers", "Fireplace Poker", "Crude Whetstone", "File", "Drill", "Wrench"]},
+  {n:"Everyday Smithing - May 1993", c:"Blacksmithing", r:["Kitchen Tools", "Cooking Pot", "Roasting Pan", "Saucepan", "Baking Tray", "Baking Pan", "Frying Pan", "Bucket", "Corkscrew", "Kettle", "Goblet", "Cup"]},
+  {n:"FBI Incident Report: San Fernando Bank Robbery", c:"Armor", r:["Bulletproof Limb Armor"]},
+  {n:"Fun in the Woods!", c:"Tailoring", r:["Small Framepack", "Large Framepack", "Cloth Satchel", "Crude Leather Backpack"]},
+  {n:"Get Stuffed", c:"Trapping", r:["Stag Head Trophy"]},
+  {n:"Good Cooking - June 1993", c:"Cooking", r:["Cake Batter", "Pie Dough"]},
+  {n:"Good Cooking - May 1993", c:"Cooking", r:["Bread Dough", "Baguette Dough", "Biscuits"]},
+  {n:"Grandma's Kitchen", c:"Cooking", r:["Chocolate Cookie Dough", "Chocolate Chip Cookie Dough", "Oatmeal Cookie Dough", "Sugar Cookie Dough", "Shortbread Cookie Dough"]},
+  {n:"Growing Your Own", c:"Farming", r:["Bell Pepper (growing season)", "Broccoli (growing season)", "Cabbage (growing season)", "Carrot (growing season)", "Cauliflower (growing season)", "Cucumber (growing season)", "Garlic (growing season)", "Green Pea (growing season)", "Habanero (growing season)", "Jalapeno (growing season)", "Kale (growing season)", "Leek (growing season)", "Lettuce (growing season)", "Onion (growing season)", "Potato (growing season)", "Pumpkin (growing season)", "Radish (growing season)", "Spinach (growing season)", "Strawberry (growing season)", "Sweet Potato (growing season)", "Tomato (growing season)", "Turnip (growing season)", "Watermelon (growing season)", "Zucchini (growing season)"]},
+  {n:"Herbal Remedy Growing", c:"Farming", r:["Black Sage (growing season)", "Broadleaf Plantain (growing season)", "Comfrey (growing season)", "Common Mallow (growing season)", "Wild Garlic (growing season)"]},
+  {n:"Home Security Monthly", c:"Electrical", r:["Motion Sensor V1 (bomb)", "Motion Sensor V2 (bomb)", "Motion Sensor V3 (bomb)"]},
+  {n:"Homespun", c:"Tailoring", r:["Dress (Knees)", "Dress (Long)", "Shirt", "Skirt (Knees)", "Skirt (Long)", "Longjohns", "Longjohns Bottom", "Sleeveless Shirt", "Trousers"]},
+  {n:"How to Use Generators", c:"Electrical", r:["Generator (use)"]},
+  {n:"Iron Age Blacksmithing", c:"Blacksmithing", r:["Charcoal Pit", "Primitive Forge", "Primitive Furnace"]},
+  {n:"Italian Delights", c:"Cooking", r:["Pizza"]},
+  {n:"Kentucky Farmer - June 1993", c:"Farming", r:["Mildew Cure"]},
+  {n:"Kentucky Farmer - May 1993", c:"Farming", r:["Flies Cure (Cigarettes)", "Flies Cure (Loose Tobacco)", "Flies Cure (Chewing Tobacco)", "Aphids Cure"]},
+  {n:"Laines Commercial Auto Manual", c:"Mechanics", r:["Intermediate Mechanics"]},
+  {n:"Laines Performance Auto Manual", c:"Mechanics", r:["Advanced Mechanics"]},
+  {n:"Laines Standard Auto Manual", c:"Mechanics", r:["Basic Mechanics"]},
+  {n:"Leather Crafts", c:"Tailoring", r:["Hide Wallet", "Belt", "Leather Tool Roll", "Sandals", "Leather Gloves"]},
+  {n:"Legalize It!", c:"Farming", r:["Hemp (growing season)"]},
+  {n:"Like Clockwork", c:"Electrical", r:["Timer", "Timer (bomb)"]},
+  {n:"Medieval Armory - June 1993", c:"Blacksmithing", r:["Crude Sword Blade", "Crude Shortsword Blade", "Sword Blade", "Shortsword Blade", "Spear Head", "Long Spear Head", "Handguard Dagger"]},
+  {n:"Medieval Armory - May 1993", c:"Blacksmithing", r:["Mace Head", "Spiked Club", "Spiked Baseball Bat", "Spiked Cudgel", "Old Axe Head", "Short Bat"]},
+  {n:"Medieval Blacksmithing", c:"Blacksmithing", r:["Smelting Furnace", "Blast Furnace"]},
+  {n:"Medieval Peasant Clothing", c:"Tailoring", r:["Hide Boots", "Hide Coat", "Hide Hat", "Hide Jacket"]},
+  {n:"Modern Blacksmithing at Home", c:"Blacksmithing", r:["Forge", "Advanced Forge"]},
+  {n:"Murano Glass Manual", c:"Glassmaking", r:["Wine Glass", "Lantern Glass"]},
+  {n:"No Man's Land", c:"Weapons", r:["Reinforce Weapon", "Crafted Gas Mask Filter", "Recharge Filters"]},
+  {n:"Outdoor Gear, Done Right", c:"Tailoring", r:["Leather Gaiter", "Leather Water Bag", "Hide Sleeping Bag", "Bandolier", "Hide Fanny Bag"]},
+  {n:"Outfit Apocalypse", c:"Armor", r:["Tire Body Armor", "Tire Forearm Armor", "Tire Shin Armor", "Tire Shoulder Armor (Left)", "Tire Shoulder Armor (Right)", "Spike Padding", "Leather Codpiece", "Leather Gorget"]},
+  {n:"Pioneering Carvers", c:"Knapping", r:["Knitting Needles", "Wooden Fork", "Bone Fork", "Wooden Spade", "Goblets", "Bucket"]},
+  {n:"Punk Fashion - From Trash to Thrash", c:"Tailoring", r:["Garbage Bag Tank Top", "Garbage Bag Dress"]},
+  {n:"Real Gladiators", c:"Tailoring", r:["Leather Vambrace", "Leather Codpiece", "Leather Gorget", "Elbow Pads", "Knee Pads"]},
+  {n:"Real Spy Secrets - June 1993", c:"Electrical", r:["Noise Maker", "Firecracker"]},
+  {n:"Real Spy Secrets - May 1993", c:"Misc", r:["Hollow Book"]},
+  {n:"Revolting Peasants", c:"Weapons", r:["Garden Fork Head Weapon", "Spade Head Cudgel", "Railspike Weapon", "Saw Plank"]},
+  {n:"Secrets of the Outback Outlaws", c:"Armor", r:["Scrap Metal Helmet", "Scrap Metal Body Armor", "Scrap Metal Shoulder Armor", "Scrap Metal Thigh Armor"]},
+  {n:"Small Game Hunting", c:"Trapping", r:["Snare Trap"]},
+  {n:"Small-Scale Smithing", c:"Blacksmithing", r:["Tweezers", "Forceps", "Scissors", "Door Knob", "Hinge", "Straight Razor", "Fishing Hooks", "Needle", "Buckle"]},
+  {n:"Sparky's Lighting Guide", c:"Electrical", r:["Improvised Flashlight", "Improvised Lantern"]},
+  {n:"Strange Histories - Siberian Bear Hunting", c:"Armor", r:["Spike Padding", "Spike Armor (Welding)", "Spear Head", "Long Spear Head"]},
+  {n:"The Cheapskate's John Spiral - Chemical Warfare", c:"Electrical", r:["Smoke Bomb", "Crafted Gas Mask Filter", "Improvised Gas Mask", "Recharge Filters"]},
+  {n:"The Cheapskate's John Spiral - Escaping Captivity", c:"Misc", r:["Copy Building Key", "Screwdriver"]},
+  {n:"The Cheapskate's John Spiral - Forging New Identities", c:"Misc", r:["Blank ID"]},
+  {n:"The Cheapskate's John Spiral - Homemade Explosives", c:"Electrical", r:["Aerosol Bomb", "Flame Bomb", "Pipe Bomb"]},
+  {n:"The Cheapskate's John Spiral - Prison Defense", c:"Weapons", r:["Shiv", "Glass Shiv", "Toothbrush Shiv", "Magazine Armor", "Improvised Lighter"]},
+  {n:"The Cheapskate's John Spiral - Street Violence", c:"Weapons", r:["Rake Head Weapon", "Sawblade Weapon", "Sheet Metal Weapon", "Saw Plank", "Bucket Maul", "Kettle Maul", "Brake Weapon"]},
+  {n:"The Farmers Guide", c:"Farming", r:["Scarecrow", "Barbed Wire"]},
+  {n:"The First Weapons", c:"Weapons", r:["Bone Hatchet Head", "Jawbone Axe", "Jawbone Club", "Bone Club", "Sharpen Bone", "Sharpen Long Bone", "Sharpen Jawbone", "Bone Spike Weapon"]},
+  {n:"The Hunter", c:"Trapping", r:["Wooden Box Trap", "Stick Trap"]},
+  {n:"The Louisville Bruiser", c:"Weapons", r:["Carve Bat"]},
+  {n:"Thyme Time", c:"Farming", r:["Basil (growing season)", "Chives (growing season)", "Cilantro (growing season)", "Lemongrass (growing season)", "Mint (growing season)", "Oregano (growing season)", "Parsley (growing season)", "Sage (growing season)", "Rosemary (growing season)", "Thyme (growing season)", "Hops (growing season)"]},
+  {n:"Tool Use of Early Man", c:"Knapping", r:["Large Stone Axe Head", "Stone Blade", "Stone Maul Head", "Bind Spear", "Stone Blade Scythe", "Sharpen Bone", "Fleshing Tool", "Long Stone Blade"]},
+  {n:"Welder Monthly - April 1993", c:"Welding", r:["Metal Pole Fence Gate", "Metal Wire Fence Gate", "Small Metal Wire Fence Gate", "Double Fence Gate", "Double Wire Gate", "Metal Big Wire Fence", "Metal Big Metal Fence", "Small Metal Pole Fence Gate", "Metal Small Pole Fence", "Metal Fence Lvl 1", "Metal Small Wire Fence"]},
+  {n:"Welder Monthly - June 1993", c:"Welding", r:["Metal Wall Lvl 1", "Metal Wall Lvl 2", "Metal Floor Lvl 1", "Metal Window Frame Lvl 1", "Metal Window Frame Lvl 2", "Metal Wall Frame", "Metal Door Frame Lvl 1", "Metal Door Frame Lvl 2", "Metal Stairs"]},
+  {n:"Welder Monthly - March 1993", c:"Welding", r:["Metal Sheet", "Small Metal Sheet"]},
+  {n:"Welder Monthly - May 1993", c:"Welding", r:["Metal Counter Lvl 1", "Metal Counter Lvl 2", "Metal Counter Corner Lvl 1", "Metal Counter Corner Lvl 2", "Metal Crate Lvl 1", "Metal Crate Lvl 2", "Metal Locker Big Lvl 1", "Metal Locker Big Lvl 2", "Metal Locker Small Lvl 1", "Metal Locker Small Lvl 2", "Metal Shelves Lvl 1", "Metal Shelves Lvl 2"]},
+  {n:"Wilderness Survival", c:"Foraging", r:["Herbalist", "Stone Blade", "Fire Harden Spear", "Crude Whetstone", "Plantain Poultice", "Comfrey Poultice", "Wild Garlic Poultice", "Bind Spear"]},
+  {n:"Wildlife Preserve", c:"Trapping", r:["Trap Box", "Cage Trap"]},
+  {n:"Woolly Yarns - June 1993", c:"Tailoring", r:["Scarf", "Legwarmers", "Sweater Vest", "Socks", "Doily"]},
+  {n:"Woolly Yarns - May 1993", c:"Tailoring", r:["Wooly Hat", "Balaclava (Face)", "Balaclava (Full)", "Beany"]},
+  {n:"World Cooking", c:"Cooking", r:["Sushi", "Maki", "Onigiri"]},
+  {n:"Zapper!", c:"Electrical", r:["Remote Controller V1", "Remote Controller V2", "Remote Controller V3", "Remote Trigger", "Crafted Trigger (bomb)"]}
+];
+
+// ========== WIKI + MEDIA HELPERS (shared) ==========
+function wikiUrl(name) {
+  return "https://pzwiki.net/wiki/" + encodeURIComponent(name.replace(/ /g, "_"));
+}
+function buildVolMarkersHtml(skill, roman) {
+  let html = "";
+  for (let v = 1; v <= 5; v++) {
+    const owned = !!state[volKey(skill, v)];
+    html += `<span class="vol-marker${owned ? " owned" : ""}" title="Vol. ${roman[v-1]}${owned ? " (owned)" : " (missing)"}">${roman[v-1]}</span>`;
+  }
+  return html;
+}
+
+// ========== EMERGENCY FREQUENCY ==========
+const FREQ_KEY = "meta|emergencyFreq";
+function renderFreq() {
+  const val = state[FREQ_KEY];
+  const valEl = document.getElementById("freq-value");
+  const btn = document.getElementById("freq-btn");
+  if (val) { valEl.textContent = val; valEl.classList.add("set"); btn.textContent = "Change"; }
+  else { valEl.textContent = "not set"; valEl.classList.remove("set"); btn.textContent = "Set"; }
+}
+document.getElementById("freq-btn").addEventListener("click", () => {
+  const current = state[FREQ_KEY] || "";
+  const input = prompt("Enter the emergency broadcast frequency (e.g. 88.7):", current);
+  if (input === null) return;
+  const val = input.trim();
+  if (val) state[FREQ_KEY] = val; else delete state[FREQ_KEY];
+  saveState();
+  renderFreq();
+});
+
+// ========== VHS TAPES ==========
+let vhsSortMode = "skill";
+function vhsKey(name) { return "vhs|" + name; }
+function vhsTotalFound() { let c=0; VHS.forEach(t => { if (state[vhsKey(t.n)]) c++; }); return c; }
+function updateVhsProgress() {
+  const total = vhsTotalFound(), n = VHS.length;
+  const percent = n ? Math.round((total / n) * 100) : 0;
+  document.getElementById("vhs-progress-label").textContent = `${total} / ${n} found`;
+  document.getElementById("vhs-progress-percent").textContent = `${percent}%`;
+  document.getElementById("vhs-progress-fill").style.width = percent + "%";
+}
+function vhsTapeRowHtml(tape) {
+  const checked = !!state[vhsKey(tape.n)] ? "checked" : "";
+  const skills = tape.s.map(x => `<span class="vhs-skill">${x.k} +${x.xp}</span>`).join("");
+  const recipes = (tape.r && tape.r.length) ? `<div class="vhs-recipes">🍴 ${tape.r.join(", ")}</div>` : "";
+  return `
+    <div class="vhs-tape">
+      <label class="vhs-tape-main">
+        <input type="checkbox" data-tape="${encodeURIComponent(tape.n)}" ${checked}>
+        <span class="vhs-tape-info">
+          <a class="vhs-name" href="${wikiUrl(tape.n)}" target="_blank" rel="noopener" title="Open ${tape.n} on PZ Wiki" onclick="event.stopPropagation()">${tape.n}</a>
+          <span class="vhs-skills">${skills}</span>
+          ${recipes}
+        </span>
+      </label>
+    </div>`;
+}
+function renderVhs() {
+  const list = document.getElementById("vhs-list");
+  list.innerHTML = "";
+  if (vhsSortMode === "name") {
+    [...VHS].sort((a, b) => a.n.localeCompare(b.n)).forEach(t => list.insertAdjacentHTML("beforeend", vhsTapeRowHtml(t)));
+  } else {
+    const bySkill = {};
+    VHS.forEach(tape => tape.s.forEach(sk => { (bySkill[sk.k] = bySkill[sk.k] || []).push(tape); }));
+    Object.keys(bySkill).sort().forEach(skill => {
+      const title = document.createElement("div"); title.className = "category-title";
+      title.textContent = `${skill} (${bySkill[skill].length})`; list.appendChild(title);
+      bySkill[skill].sort((a, b) => a.n.localeCompare(b.n)).forEach(t => list.insertAdjacentHTML("beforeend", vhsTapeRowHtml(t)));
+    });
+  }
+  list.querySelectorAll('input[type="checkbox"][data-tape]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      const name = decodeURIComponent(cb.dataset.tape);
+      state[vhsKey(name)] = cb.checked;
+      list.querySelectorAll(`input[data-tape="${cb.dataset.tape}"]`).forEach(o => o.checked = cb.checked);
+      saveState(); updateVhsProgress();
+    });
+  });
+  applyVhsSearch(); updateVhsProgress();
+}
+function applyVhsSearch() {
+  const q = (document.getElementById("vhs-search").value || "").toLowerCase().trim();
+  document.querySelectorAll("#vhs-list .vhs-tape").forEach(row => {
+    row.style.display = (!q || row.textContent.toLowerCase().includes(q)) ? "" : "none";
+  });
+}
+document.getElementById("vhs-search").addEventListener("input", applyVhsSearch);
+document.querySelectorAll("#vhs-sort-skill, #vhs-sort-name").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.getElementById("vhs-sort-skill").classList.toggle("active", btn.id === "vhs-sort-skill");
+    document.getElementById("vhs-sort-name").classList.toggle("active", btn.id === "vhs-sort-name");
+    vhsSortMode = btn.dataset.mode; renderVhs();
+  });
+});
+
+// ========== RECIPE MAGAZINES ==========
+let magsSortMode = "cat";
+function magKey(name) { return "mag|" + name; }
+function magsTotalFound() { let c=0; RECIPE_MAGS.forEach(m => { if (state[magKey(m.n)]) c++; }); return c; }
+function updateMagsProgress() {
+  const total = magsTotalFound(), n = RECIPE_MAGS.length;
+  const percent = n ? Math.round((total / n) * 100) : 0;
+  document.getElementById("mags-progress-label").textContent = `${total} / ${n} found`;
+  document.getElementById("mags-progress-percent").textContent = `${percent}%`;
+  document.getElementById("mags-progress-fill").style.width = percent + "%";
+}
+function magRowHtml(mag) {
+  const checked = !!state[magKey(mag.n)] ? "checked" : "";
+  const recipes = `<div class="vhs-recipes">🍴 ${mag.r.join(", ")}</div>`;
+  return `
+    <div class="vhs-tape">
+      <label class="vhs-tape-main">
+        <input type="checkbox" data-mag="${encodeURIComponent(mag.n)}" ${checked}>
+        <span class="vhs-tape-info">
+          <a class="vhs-name" href="${wikiUrl("Magazine: " + mag.n)}" target="_blank" rel="noopener" title="Open ${mag.n} on PZ Wiki" onclick="event.stopPropagation()">${mag.n}</a>
+          <span class="vhs-skills"><span class="mag-cat">${mag.c}</span></span>
+          ${recipes}
+        </span>
+      </label>
+    </div>`;
+}
+function renderMags() {
+  const list = document.getElementById("mags-list");
+  list.innerHTML = "";
+  if (magsSortMode === "name") {
+    [...RECIPE_MAGS].sort((a, b) => a.n.localeCompare(b.n)).forEach(m => list.insertAdjacentHTML("beforeend", magRowHtml(m)));
+  } else {
+    const byCat = {};
+    RECIPE_MAGS.forEach(m => { (byCat[m.c] = byCat[m.c] || []).push(m); });
+    Object.keys(byCat).sort().forEach(cat => {
+      const title = document.createElement("div"); title.className = "category-title";
+      title.textContent = `${cat} (${byCat[cat].length})`; list.appendChild(title);
+      byCat[cat].sort((a, b) => a.n.localeCompare(b.n)).forEach(m => list.insertAdjacentHTML("beforeend", magRowHtml(m)));
+    });
+  }
+  list.querySelectorAll('input[type="checkbox"][data-mag]').forEach(cb => {
+    cb.addEventListener("change", () => {
+      const name = decodeURIComponent(cb.dataset.mag);
+      state[magKey(name)] = cb.checked;
+      saveState(); updateMagsProgress();
+    });
+  });
+  applyMagsSearch(); updateMagsProgress();
+}
+function applyMagsSearch() {
+  const q = (document.getElementById("mags-search").value || "").toLowerCase().trim();
+  document.querySelectorAll("#mags-list .vhs-tape").forEach(row => {
+    row.style.display = (!q || row.textContent.toLowerCase().includes(q)) ? "" : "none";
+  });
+}
+document.getElementById("mags-search").addEventListener("input", applyMagsSearch);
+document.querySelectorAll("#mags-sort-cat, #mags-sort-name").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.getElementById("mags-sort-cat").classList.toggle("active", btn.id === "mags-sort-cat");
+    document.getElementById("mags-sort-name").classList.toggle("active", btn.id === "mags-sort-name");
+    magsSortMode = btn.dataset.mode; renderMags();
+  });
+});
+
 document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     const tabId = btn.dataset.tab;
@@ -627,6 +1043,9 @@ async function init() {
   render();
   renderMonthChips();
   renderCrops();
+  renderVhs();
+  renderMags();
+  renderFreq();
 }
 
 init();
