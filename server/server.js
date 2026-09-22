@@ -160,13 +160,22 @@ const server = http.createServer((req, res) => {
   }
   
   // Static files - serve from parent directory
+  const WEBROOT = path.resolve(__dirname, '..');
   let filePath;
   if (pathname === '/' || pathname === '/index.html') {
-    filePath = path.join(__dirname, '..', 'index-server.html');
+    filePath = path.join(WEBROOT, 'index-server.html');
   } else {
-    // Remove leading slash and resolve
-    const safePath = pathname.slice(1).replace(/\.\./g, '');
-    filePath = path.join(__dirname, '..', safePath);
+    // Normalize and resolve the path, then verify it's within webroot
+    const requestedPath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
+    filePath = path.resolve(WEBROOT, requestedPath.slice(1));
+    
+    // SECURITY: Prevent path traversal - must be within webroot
+    if (!filePath.startsWith(WEBROOT + path.sep) && filePath !== WEBROOT) {
+      console.warn(`Path traversal attempt blocked: ${pathname}`);
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
   }
   
   serveStatic(req, res, filePath);

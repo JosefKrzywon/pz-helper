@@ -610,6 +610,14 @@ aws cloudformation describe-stacks --stack-name pz-helper --region $REGION \
 
 ## Changelog
 
+### 1.6.2 (2026-09-22)
+
+- **Security hardening (OWASP):**
+  - Fixed critical path traversal vulnerability in self-hosted server
+  - Added timing-safe comparison for session token verification (prevents timing attacks)
+  - Added CloudFront Response Headers Policy with CSP, X-Frame-Options, HSTS, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy
+- **robots.txt option:** deploy.sh now asks whether to block search engines (default: no)
+
 ### 1.6.1 (2026-09-22)
 
 - **Lambda runtime upgrade:** updated both Lambda functions from Node.js 20.x

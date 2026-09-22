@@ -286,7 +286,7 @@ first_time_setup() {
     fi
     
     # Step 5: Get remaining settings
-    header "Step 5/6: Final Settings"
+    header "Step 5/7: Final Settings"
     
     # Region
     local default_region=$(aws configure get region 2>/dev/null || echo "eu-central-1")
@@ -303,7 +303,7 @@ first_time_setup() {
     BUCKET_PREFIX="${input_prefix:-$default_prefix}"
     
     # Step 6: Cost Protection
-    header "Step 6/6: Cost Protection (DDoS/Budget)"
+    header "Step 6/7: Cost Protection (DDoS/Budget)"
     
     echo "AWS costs can spike from unexpected traffic or DDoS attacks."
     echo "This setup can automatically disable your site if costs exceed a limit."
@@ -365,6 +365,22 @@ first_time_setup() {
         echo "   Lambda limit: $LAMBDA_CONCURRENCY concurrent"
     fi
     
+    # ----------------------------------------------------------------
+    # STEP 7: Search Engine Visibility
+    # ----------------------------------------------------------------
+    header "Step 7/7: Search Engine Visibility"
+    echo "Block search engines from indexing your site?"
+    echo "(Creates robots.txt with Disallow: /)"
+    echo ""
+    read -p "Block search engines? [y/N]: " input_robots
+    if [[ "$input_robots" =~ ^[Yy]$ ]]; then
+        BLOCK_ROBOTS="yes"
+        ok "Search engines will be blocked (robots.txt)"
+    else
+        BLOCK_ROBOTS="no"
+        info "Search engines allowed (no robots.txt)"
+    fi
+    
     # Save config
     header "Saving Configuration"
     
@@ -383,6 +399,9 @@ HOSTED_ZONE_ID="$HOSTED_ZONE_ID"
 BUDGET_LIMIT="$BUDGET_LIMIT"
 BUDGET_EMAIL="$BUDGET_EMAIL"
 LAMBDA_CONCURRENCY="$LAMBDA_CONCURRENCY"
+
+# Search Engine Visibility
+BLOCK_ROBOTS="$BLOCK_ROBOTS"
 EOF
     
     ok "Config saved to config.sh"
@@ -399,6 +418,11 @@ EOF
     fi
     echo "  Budget Limit:    \$${BUDGET_LIMIT}/month"
     echo "  Lambda Limit:    $LAMBDA_CONCURRENCY concurrent"
+    if [ "$BLOCK_ROBOTS" == "yes" ]; then
+        echo "  Search Engines:  blocked (robots.txt)"
+    else
+        echo "  Search Engines:  allowed"
+    fi
     echo ""
     
     read -p "Continue with deployment? [Y/n] " confirm
@@ -613,6 +637,7 @@ load_config() {
     BUDGET_LIMIT="${BUDGET_LIMIT:-5}"
     BUDGET_EMAIL="${BUDGET_EMAIL:-}"
     LAMBDA_CONCURRENCY="${LAMBDA_CONCURRENCY:-5}"
+    BLOCK_ROBOTS="${BLOCK_ROBOTS:-no}"
 
     # Session secret for signing login cookies. Generated once and persisted
     # in config.sh so it stays stable across deploys (rotating it on every
@@ -1113,6 +1138,18 @@ upload_website() {
             ok "Uploaded ${filename}"
         fi
     done
+    
+    # Create robots.txt if search engines should be blocked
+    BLOCK_ROBOTS="${BLOCK_ROBOTS:-no}"
+    if [ "$BLOCK_ROBOTS" == "yes" ]; then
+        info "Creating robots.txt (blocking search engines)..."
+        echo -e "User-agent: *\nDisallow: /" | aws s3 cp - "s3://${bucket}/robots.txt" \
+            --content-type "text/plain" --quiet
+        ok "Uploaded robots.txt"
+    else
+        # Remove robots.txt if it exists (in case setting changed)
+        aws s3 rm "s3://${bucket}/robots.txt" --quiet 2>/dev/null || true
+    fi
     
     # Invalidate CloudFront cache (there is always a distribution, with or
     # without a custom domain)

@@ -13,7 +13,7 @@
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
-import { createHash, createHmac } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
 const client = new DynamoDBClient({});
 const db = DynamoDBDocumentClient.from(client);
@@ -74,7 +74,12 @@ function verifySessionToken(token) {
   if (!data || !signature) return null;
   
   const expectedSig = createHmac('sha256', SESSION_SECRET).update(data).digest('base64url');
-  if (signature !== expectedSig) return null;
+  
+  // SECURITY: Timing-safe comparison to prevent timing attacks
+  const sigBuffer = Buffer.from(signature, 'utf8');
+  const expectedBuffer = Buffer.from(expectedSig, 'utf8');
+  if (sigBuffer.length !== expectedBuffer.length) return null;
+  if (!timingSafeEqual(sigBuffer, expectedBuffer)) return null;
   
   try {
     const payload = JSON.parse(Buffer.from(data, 'base64').toString());
