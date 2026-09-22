@@ -1,6 +1,6 @@
 # AWS Deployment
 
-Deploy your own password-protected PZ Skill Books website on AWS.
+Deploy your own password-protected Zomboid Helper website on AWS.
 
 **What you get:**
 - Custom domain with HTTPS (e.g. `zomboid.your-domain.com`)
@@ -209,7 +209,7 @@ After first run, settings are saved in `config.sh`:
 ```bash
 REGION="eu-central-1"
 USERNAME="zombie"
-BUCKET_PREFIX="pz-skillbooks-1234"
+BUCKET_PREFIX="pz-helper"
 DOMAIN_NAME="zomboid.your-domain.com"
 HOSTED_ZONE_ID="ZXXXXXXXXXX"
 

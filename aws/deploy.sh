@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# PZ Skill Books - AWS Deployment
+# Zomboid Helper - AWS Deployment
 #
 # Deploys everything in one command:
 # - Lambda + DynamoDB for sync
@@ -39,7 +39,7 @@ header() { echo -e "\n${GREEN}==== $1 ====${NC}\n"; }
 first_time_setup() {
     echo ""
     echo -e "${BOLD}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}║          PZ Skill Books - AWS Setup Wizard                 ║${NC}"
+    echo -e "${BOLD}║          Zomboid Helper - AWS Setup Wizard                 ║${NC}"
     echo -e "${BOLD}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
@@ -298,7 +298,7 @@ first_time_setup() {
     USERNAME="${input_username:-zombie}"
     
     # Bucket prefix
-    local default_prefix="pz-skillbooks"
+    local default_prefix="pz-helper"
     read -p "Resource prefix [$default_prefix]: " input_prefix
     BUCKET_PREFIX="${input_prefix:-$default_prefix}"
     
@@ -370,7 +370,7 @@ first_time_setup() {
     
     cat > "$CONFIG_FILE" << EOF
 #!/bin/bash
-# PZ Skill Books - AWS Configuration
+# Zomboid Helper - AWS Configuration
 # Generated: $(date)
 
 REGION="$REGION"
@@ -1089,7 +1089,7 @@ case "${1:-}" in
         upload_only
         ;;
     --help|-h)
-        echo "PZ Skill Books - AWS Deployment"
+        echo "Zomboid Helper - AWS Deployment"
         echo ""
         echo "Usage:"
         echo "  ./deploy.sh              Deploy everything (interactive setup on first run)"
@@ -1101,7 +1101,7 @@ case "${1:-}" in
         load_config  # This triggers first_time_setup if no config exists
         check_existing_resources
         
-        header "PZ Skill Books - Deployment"
+        header "Zomboid Helper - Deployment"
         echo "Region:   $REGION"
         echo "Username: $USERNAME"
         echo "Prefix:   $BUCKET_PREFIX"

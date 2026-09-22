@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'PZ Skill Books - Complete Stack (CloudFront + S3 + Lambda + DynamoDB)'
+Description: 'Zomboid Helper - Complete Stack (CloudFront + S3 + Lambda + DynamoDB)'
 
 Parameters:
   BucketPrefix:
     Type: String
     Description: 'Prefix for resource names'
-    Default: 'pz-skillbooks'
+    Default: 'pz-helper'
     AllowedPattern: '[a-z0-9-]+'
 
   DomainName:
@@ -161,7 +161,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${BucketPrefix}-api'
-      Description: 'PZ Skill Books API (Login, Sync, Admin)'
+      Description: 'Zomboid Helper API (Login, Sync, Admin)'
       Runtime: nodejs20.x
       Handler: index.handler
       Timeout: 10
@@ -280,7 +280,7 @@ Resources:
           };
         }
       FunctionConfig:
-        Comment: 'Auth check for PZ Skill Books'
+        Comment: 'Auth check for Zomboid Helper'
         Runtime: cloudfront-js-2.0
 
   # ============================================================
@@ -300,7 +300,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: 'PZ Skill Books'
+        Comment: 'Zomboid Helper'
         DefaultRootObject: index.html
         Aliases: !If
           - UseCustomDomain

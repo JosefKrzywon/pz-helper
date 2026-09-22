@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# PZ Skill Books - Admin Password Reset
+# Zomboid Helper - Admin Password Reset
 #
 # Resets (or creates) a user's password directly in the DynamoDB Users table.
 #

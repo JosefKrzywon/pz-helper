@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# PZ Skill Books - AWS Configuration
+# Zomboid Helper - AWS Configuration
 #
 # Copy this file to config.sh and edit the values:
 #   cp config.example.sh config.sh
@@ -18,7 +18,7 @@ USERNAME="zombie"
 
 # Unique prefix for AWS resources (lowercase, no spaces)
 # This must be globally unique across all AWS accounts!
-BUCKET_PREFIX="pz-skillbooks-CHANGEME"
+BUCKET_PREFIX="pz-helper"
 
 # ============================================================
 # OPTIONAL - Custom Domain

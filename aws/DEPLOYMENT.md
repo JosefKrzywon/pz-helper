@@ -1,6 +1,6 @@
 # Deployment Reference
 
-A detailed reference for deploying, operating, and tearing down the PZ Skill Books
+A detailed reference for deploying, operating, and tearing down the Zomboid Helper
 AWS environment.
 
 Last updated: 2026-09-22
@@ -135,7 +135,7 @@ certificate, and maps your custom domain. Created by the stack.
 
 ```bash
 aws cloudfront list-distributions \
-  --query "DistributionList.Items[?Comment=='PZ Skill Books'].[Id,DomainName,Status]" \
+  --query "DistributionList.Items[?Comment=='Zomboid Helper'].[Id,DomainName,Status]" \
   --output table
 ```
 
