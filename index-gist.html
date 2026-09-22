@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PZ Skill Books Checklist (Gist Sync)</title>
+<title>Zomboid Helper (Gist Sync)</title>
 <style>
   :root {
     --bg: #14171a;
@@ -403,7 +403,7 @@
 
 <!-- Skills Tab -->
 <div id="tab-skills" class="tab-content active">
-  <h1>📚 Project Zomboid Skill Books</h1>
+  <h1>🧟 Zomboid Helper</h1>
   <div class="subtitle">Checklist — 24 Skills, 5 Volumes each (I–V)</div>
 
   <div class="sync-status" id="sync-status">
@@ -506,7 +506,7 @@ async function createGist(token) {
       "Accept": "application/vnd.github+json"
     },
     body: JSON.stringify({
-      description: "PZ Skill Books Checklist - Progress",
+      description: "Zomboid Helper - Progress",
       public: false,
       files: {
         "progress.json": { content: JSON.stringify(state) }
