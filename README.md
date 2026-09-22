@@ -34,10 +34,7 @@ All four standalone variants share the same feature set — they differ only in
 | **Local** | Browser only | Free | See below |
 | **GitHub Gist** | ✅ Cloud | Free | [Setup Guide](docs/setup-gist.md) |
 | **Self-Hosted** | ✅ LAN/Server | Free | [Server Guide](server/) |
-| **AWS** | ✅ Cloud + Multi-User | ~$0 (custom domain ~$0.50/mo) | [AWS Guide](aws/) |
-
-The AWS deployment works **with or without a custom domain** — without one it
-uses the default CloudFront URL, so no Route53 setup is required.
+| **AWS** | ✅ Cloud + Multi-User | See warning below | [AWS Guide](aws/) |
 
 ---
 
@@ -115,15 +112,27 @@ The **AWS version** is the most secure option with:
 
 ## 💰 Costs
 
-All versions are free except AWS with a custom domain:
-
 | Version | Monthly Cost |
 |---------|--------------|
 | Local | $0 |
 | GitHub Gist | $0 |
 | Self-Hosted | $0 |
-| AWS (CloudFront URL) | ~$0 |
-| **AWS (custom domain)** | **~$0.50** |
+
+### ⚠️ AWS Warning
+
+> **The AWS option is for experienced users only.**
+> 
+> AWS can generate **significant unexpected costs** if misconfigured or abused (DDoS, traffic spikes, forgotten resources). While the deployment includes cost protection (budget alerts, auto-disable), **you are responsible for monitoring your AWS bill**.
+
+**AWS Costs breakdown:**
+
+| Scenario | Cost |
+|----------|------|
+| Without custom domain | ~$0/month (Free Tier covers it) |
+| With existing Route53 zone | ~$0.50/month (zone hosting fee) |
+| **Registering a new domain** | **$12–50/year** (depends on TLD) + $0.50/month zone fee |
+
+If you don't already have an AWS account and domain, consider the **Gist** or **Self-Hosted** options instead — they're free and much simpler.
 
 ---
 

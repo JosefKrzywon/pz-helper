@@ -2,14 +2,33 @@
 
 Deploy your own password-protected Zomboid Helper website on AWS.
 
+> ⚠️ **For experienced users only**
+> 
+> This deployment requires familiarity with AWS, CloudFormation, and cloud infrastructure. **AWS can generate significant unexpected costs** if misconfigured, abused, or if resources are forgotten. While this deployment includes cost protection (budget alerts, auto-disable at threshold), **you are responsible for monitoring your AWS bill**.
+> 
+> If you're new to AWS, consider the simpler **Local**, **Gist**, or **Self-Hosted** options instead.
+
+---
+
 **What you get:**
-- Custom domain with HTTPS (e.g. `zomboid.your-domain.com`)
+- Custom domain with HTTPS (optional — works without too)
 - Cookie-based login (no browser popup)
 - Progress synced to the cloud
 - Multiple users with separate progress
 - Admin panel for user management
 
-**Cost:** ~$0.50/month (Route53 zone fee only — everything else is within Free Tier)
+**Costs:**
+
+| Scenario | Cost |
+|----------|------|
+| Without custom domain | ~$0/month (Free Tier) |
+| With existing Route53 zone | ~$0.50/month (zone hosting fee) |
+| **Registering a new domain at AWS** | **$12–50/year** (depends on TLD) + $0.50/month |
+
+If you already have a domain elsewhere (Namecheap, GoDaddy, etc.), you can either:
+- Transfer it to Route53 (one-time fee, varies by TLD)
+- Point your external nameservers to a Route53 hosted zone ($0.50/month)
+- Skip the custom domain and use the free CloudFront URL
 
 ---
 
@@ -18,6 +37,8 @@ Deploy your own password-protected Zomboid Helper website on AWS.
 ### 1. AWS Account
 
 You need an AWS account. [Create one here](https://portal.aws.amazon.com/billing/signup) if you don't have one.
+
+**Important:** New AWS accounts have a 12-month Free Tier. After that, or if you exceed Free Tier limits, charges apply. Always monitor your [AWS Billing Dashboard](https://console.aws.amazon.com/billing/).
 
 ### 2. AWS CLI
 
@@ -255,19 +276,34 @@ This tells well-behaved crawlers not to index the site. To change this later, ed
 
 ---
 
-## Costs
+## Costs (Detailed)
 
-| Service | Free Tier | Your Cost |
-|---------|-----------|-----------|
-| Lambda | 1M requests/month | $0.00 |
-| DynamoDB | 25 GB + 200M requests | $0.00 |
-| S3 | 5 GB | ~$0.01 |
-| CloudFront | 1 TB transfer | ~$0.01 |
-| **Route53 Zone** | — | **$0.50** |
+This assumes you're within AWS Free Tier (first 12 months, or always-free tiers):
 
-**Total: ~$0.50/month**
+| Service | Free Tier Limit | Typical Usage | Your Cost |
+|---------|-----------------|---------------|-----------|
+| Lambda | 1M requests/month | <1000 | $0.00 |
+| DynamoDB | 25 GB + 200M requests | <1 MB | $0.00 |
+| S3 | 5 GB storage | <1 MB | $0.00 |
+| CloudFront | 1 TB transfer/month | <1 GB | $0.00 |
+| Route53 Zone | — | 1 zone | $0.50/month |
+| Route53 Domain | — | if registering new | $12–50/year |
 
-Without custom domain (using CloudFront URL): effectively **$0**
+**Scenarios:**
+
+| Setup | Monthly Cost |
+|-------|--------------|
+| No custom domain (CloudFront URL only) | ~$0 |
+| Custom domain with existing Route53 zone | ~$0.50 |
+| Custom domain + new zone (domain registered elsewhere) | ~$0.50 |
+| **New domain registered at AWS** | **$0.50 + $1–4/month amortized** |
+
+⚠️ **Cost risks:**
+- **Traffic spikes / DDoS:** CloudFront charges ~$0.085/GB for data transfer. A sustained attack could generate costs.
+- **Forgotten resources:** If you stop using the site, delete the stack (`./deploy.sh --delete`) to avoid ongoing charges.
+- **Free Tier expiration:** After 12 months, some services start charging. Lambda and DynamoDB have always-free tiers, but watch your bill.
+
+The deployment includes automatic cost protection (see "Cost Protection" section above), but **always monitor your AWS bill**.
 
 ---
 
