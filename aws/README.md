@@ -217,9 +217,41 @@ HOSTED_ZONE_ID="ZXXXXXXXXXX"
 BUDGET_LIMIT="5"
 BUDGET_EMAIL=""
 LAMBDA_CONCURRENCY="5"
+
+# Search Engine Visibility
+BLOCK_ROBOTS="no"
 ```
 
 Edit this file to change settings, then run `./deploy.sh` again.
+
+---
+
+## Security
+
+The AWS deployment includes several security features:
+
+### Authentication & Sessions
+- **HMAC-signed session cookies** — tokens are cryptographically signed and verified
+- **Timing-safe comparisons** — prevents timing attacks on token verification
+- **Password hashing** — SHA-256 with random salt, stored in DynamoDB
+- **HttpOnly/Secure/SameSite cookies** — protects against XSS and CSRF
+
+### HTTP Security Headers
+CloudFront adds these headers to all responses:
+- `Content-Security-Policy` — restricts resource loading
+- `X-Frame-Options: DENY` — prevents clickjacking
+- `X-Content-Type-Options: nosniff` — prevents MIME sniffing
+- `Strict-Transport-Security` — enforces HTTPS
+- `Referrer-Policy` — controls referrer information
+- `X-XSS-Protection` — legacy XSS filter
+
+### Search Engine Visibility
+The deploy script asks whether to block search engines (default: no). If enabled, a `robots.txt` is uploaded:
+```
+User-agent: *
+Disallow: /
+```
+This tells well-behaved crawlers not to index the site. To change this later, edit `BLOCK_ROBOTS` in `config.sh` and run `./deploy.sh --upload`.
 
 ---
 

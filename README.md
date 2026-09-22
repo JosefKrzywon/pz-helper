@@ -80,7 +80,11 @@ progress is saved.
 | **Self-Hosted** | HTTP Basic Auth | Plaintext comparison |
 | **AWS** | Cookie-based sessions | SHA256 + salt in DynamoDB |
 
-The AWS version is the most secure option with proper password hashing and encrypted transport.
+The **AWS version** is the most secure option with:
+- HMAC-signed session cookies with timing-safe verification
+- SHA256 + salt password hashing
+- Security headers (CSP, HSTS, X-Frame-Options, etc.)
+- Optional `robots.txt` to block search engines
 
 ---
 

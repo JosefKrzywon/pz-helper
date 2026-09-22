@@ -91,7 +91,7 @@ aws s3 ls s3://pz-helper-artifacts-${ACCOUNT_ID}/lambda/
 ### Lambda function (`pz-helper-XXXX-api`)
 Purpose: the API backend. Handles login, session validation, progress sync, and
 admin operations, reading/writing the DynamoDB tables. Created by the stack
-(Node.js 20.x runtime, code pulled from the artifact bucket).
+(Node.js 22.x runtime, code pulled from the artifact bucket).
 
 ```bash
 aws lambda get-function --function-name pz-helper-XXXX-api --region $REGION \
