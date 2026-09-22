@@ -17,6 +17,7 @@ aws/lambda/*.zip
 # Local config (may contain secrets)
 aws/deploy.local.sh
 aws/config.sh
+aws/config.sh.*
 
 # Server data (user progress)
 server/data/
