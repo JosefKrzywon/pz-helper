@@ -51,6 +51,17 @@ aws sts get-caller-identity
 # Should show your account ID
 ```
 
+**Required permissions:** the deploy script provisions resources across several
+services, so the credentials you use need permissions for **S3,
+CloudFormation, Lambda, DynamoDB, Route53, ACM, IAM, CloudFront, SNS and
+Budgets**. The simplest option is an account/user with `AdministratorAccess`.
+If you prefer least privilege, grant the full-access managed policies for those
+services (e.g. `AmazonS3FullAccess`, `AWSCloudFormationFullAccess`,
+`AWSLambda_FullAccess`, `AmazonDynamoDBFullAccess`, `AmazonRoute53FullAccess`,
+`AWSCertificateManagerFullAccess`, `CloudFrontFullAccess`, `IAMFullAccess`, and
+budget/SNS access). The script checks most of these up front and warns if any
+are missing.
+
 ### 4. Required Tools
 
 | Tool | Check | Install |

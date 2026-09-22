@@ -174,8 +174,15 @@ aws acm describe-certificate --region us-east-1 \
 These are provisioned automatically as part of the stack and generally do not
 require separate management:
 
-- **IAM execution role (`pz-helper-XXXX-lambda-role`)** — grants the Lambda
-  DynamoDB access and CloudWatch Logs permissions.
+- **IAM execution role (`pz-helper-XXXX-lambda-role`)** — grants the API Lambda
+  DynamoDB access (GetItem/PutItem/UpdateItem/DeleteItem/Scan on the Users and
+  Progress tables) and CloudWatch Logs permissions
+  (`AWSLambdaBasicExecutionRole`).
+- **Budget handler IAM role (`pz-helper-XXXX-budget-handler-role`)** — only
+  created when cost protection is enabled. Grants the budget-alert Lambda
+  CloudWatch Logs plus `cloudfront:GetDistributionConfig` and
+  `cloudfront:UpdateDistribution` on this stack's distribution (used to disable
+  CloudFront when the budget is exceeded).
 - **Two Lambda permissions** — a Function URL invoke permission and a plain
   `lambda:InvokeFunction` permission. Both are required for the Function URL to
   respond without `403 Forbidden` (see the note in the initial deployment).

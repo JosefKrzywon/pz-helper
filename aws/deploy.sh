@@ -298,7 +298,7 @@ first_time_setup() {
     USERNAME="${input_username:-zombie}"
     
     # Bucket prefix
-    local default_prefix="pz-skillbooks-$(echo $ACCOUNT_ID | tail -c 5)"
+    local default_prefix="pz-skillbooks"
     read -p "Resource prefix [$default_prefix]: " input_prefix
     BUCKET_PREFIX="${input_prefix:-$default_prefix}"
     
