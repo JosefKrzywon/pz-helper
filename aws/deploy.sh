@@ -550,6 +550,19 @@ load_config() {
     BUDGET_LIMIT="${BUDGET_LIMIT:-5}"
     BUDGET_EMAIL="${BUDGET_EMAIL:-}"
     LAMBDA_CONCURRENCY="${LAMBDA_CONCURRENCY:-5}"
+
+    # Session secret for signing login cookies. Generated once and persisted
+    # in config.sh so it stays stable across deploys (rotating it on every
+    # deploy would invalidate all existing login sessions).
+    if [ -z "$SESSION_SECRET" ]; then
+        SESSION_SECRET=$(openssl rand -hex 32)
+        cat >> "$CONFIG_FILE" << EOF
+
+# Session secret (auto-generated, do not share)
+SESSION_SECRET="$SESSION_SECRET"
+EOF
+        ok "Generated new session secret (saved to config.sh)"
+    fi
     
     # Get account ID
     ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
@@ -585,9 +598,9 @@ check_prerequisites() {
         errors=$((errors + 1))
     fi
     
-    # Check zip or PowerShell
-    if ! command -v zip &> /dev/null && ! command -v powershell.exe &> /dev/null; then
-        fail "Neither zip nor PowerShell found"
+    # Check zip / python3 / PowerShell (one of them needed to package Lambda)
+    if ! command -v zip &> /dev/null && ! command -v python3 &> /dev/null && ! command -v powershell.exe &> /dev/null; then
+        fail "No zip tool found (need zip, python3, or PowerShell)"
         errors=$((errors + 1))
     fi
     
@@ -770,12 +783,20 @@ deploy_lambda() {
     cd "${SCRIPT_DIR}/lambda"
     rm -f sync-function.zip
     
-    # Try zip first, fall back to PowerShell
+    # Package the Lambda code. Try tools in order of availability so this
+    # works on Linux, macOS and Windows:
+    #   1) zip        (Linux/macOS, Git Bash)
+    #   2) python3    (cross-platform fallback, almost always present on *nix)
+    #   3) powershell (Windows without zip)
     if command -v zip &> /dev/null; then
         zip -j sync-function.zip index.mjs > /dev/null
-    else
-        # Use PowerShell Compress-Archive on Windows
+    elif command -v python3 &> /dev/null; then
+        python3 -c "import zipfile; z=zipfile.ZipFile('sync-function.zip','w',zipfile.ZIP_DEFLATED); z.write('index.mjs','index.mjs'); z.close()"
+    elif command -v powershell.exe &> /dev/null; then
         powershell.exe -Command "Compress-Archive -Path 'index.mjs' -DestinationPath 'sync-function.zip' -Force"
+    else
+        fail "No zip tool found. Install 'zip' or 'python3'."
+        exit 1
     fi
     
     if [ ! -f sync-function.zip ]; then
@@ -838,6 +859,7 @@ deploy_stack() {
     local params=(
         "AdminUsername=${USERNAME}"
         "BucketPrefix=${BUCKET_PREFIX}"
+        "SessionSecret=${SESSION_SECRET}"
     )
     
     if [ "$PASSWORD_HASH" != "USE_PREVIOUS" ]; then
@@ -897,8 +919,19 @@ upload_website() {
     fi
     
     info "Uploading HTML files to ${bucket}..."
-    
+
+    # App pages live in the project root (index.html and variants)
     for file in "${SCRIPT_DIR}/../"*.html; do
+        if [ -f "$file" ]; then
+            local filename=$(basename "$file")
+            aws s3 cp "$file" "s3://${bucket}/${filename}" \
+                --content-type "text/html; charset=utf-8" --quiet
+            ok "Uploaded ${filename}"
+        fi
+    done
+
+    # AWS-specific pages (e.g. login.html) live in aws/website/
+    for file in "${SCRIPT_DIR}/website/"*.html; do
         if [ -f "$file" ]; then
             local filename=$(basename "$file")
             aws s3 cp "$file" "s3://${bucket}/${filename}" \

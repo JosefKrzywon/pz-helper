@@ -56,7 +56,7 @@ aws sts get-caller-identity
 | Tool | Check | Install |
 |------|-------|---------|
 | **Bash** | `bash --version` | Git Bash (Windows), Terminal (macOS/Linux) |
-| **zip** | `zip --version` | `apt install zip` / `brew install zip` / 7-Zip on Windows |
+| **zip** | `zip --version` | `apt install zip` / `brew install zip` / 7-Zip on Windows (or have `python3` available — the script falls back to it) |
 | **openssl** | `openssl version` | Usually pre-installed; comes with Git Bash |
 
 ### 5. Route53 Hosted Zone (Optional)
@@ -138,7 +138,31 @@ The setup wizard asks about cost protection:
 ./deploy.sh --upload     # Upload HTML files only (after edits)
 ./deploy.sh --delete     # Delete all AWS resources
 ./deploy.sh --help       # Show help
+./reset-password.sh      # Reset a user's login password (admin only)
 ```
+
+---
+
+## Resetting a Password
+
+If you forget your login password (or want to change it without the website),
+use the admin reset script:
+
+```bash
+cd aws
+./reset-password.sh              # resets the admin user from config.sh
+./reset-password.sh someuser     # resets a specific user
+```
+
+The script asks for the new password (hidden input), hashes it locally, and
+writes it directly into the DynamoDB users table. If the user doesn't exist
+yet, it is created as an admin.
+
+**Who can run this:** The script talks to DynamoDB through the AWS CLI, so it
+only works for someone with valid AWS credentials for this account that have
+write access to the users table — i.e. the **account owner / administrator**.
+There is no way to trigger it anonymously or from the website. Your plaintext
+password never leaves your machine; only the salted SHA-256 hash is stored.
 
 ---
 

@@ -170,6 +170,7 @@ Resources:
           PROGRESS_TABLE: !Ref ProgressTable
           SESSION_SECRET: !Ref SessionSecret
           ADMIN_USERNAME: !Ref AdminUsername
+          ADMIN_PASSWORD_HASH: !Ref AdminPasswordHash
       Code:
         S3Bucket: !Sub '${BucketPrefix}-artifacts-${AWS::AccountId}'
         S3Key: lambda/sync-function.zip
@@ -208,31 +209,64 @@ Resources:
     Properties:
       Name: !Sub '${BucketPrefix}-auth'
       AutoPublish: true
-      FunctionCode: |
+      FunctionCode: !Sub |
+        import crypto from 'crypto';
+
+        var SESSION_SECRET = '${SessionSecret}';
+
+        // Constant-time string compare to avoid timing side channels
+        function constantTimeEquals(a, b) {
+          if (a.length !== b.length) return false;
+          var xor = 0;
+          for (var i = 0; i < a.length; i++) {
+            xor |= (a.charCodeAt(i) ^ b.charCodeAt(i));
+          }
+          return xor === 0;
+        }
+
+        // Verify the HMAC-signed session token (same scheme as the Lambda):
+        //   token = base64(payloadJSON) + "." + base64url(HMAC_SHA256(payload))
+        function verifyToken(token) {
+          if (!token) return false;
+          var parts = token.split('.');
+          if (parts.length !== 2) return false;
+          var data = parts[0];
+          var signature = parts[1];
+
+          var expected = crypto.createHmac('sha256', SESSION_SECRET).update(data).digest('base64url');
+          if (!constantTimeEquals(signature, expected)) return false;
+
+          try {
+            var payload = JSON.parse(Buffer.from(data, 'base64').toString('utf-8'));
+            if (payload.exp && payload.exp < Date.now()) return false;
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+
         function handler(event) {
           var request = event.request;
           var cookies = request.cookies || {};
           var uri = request.uri;
-          
-          // Allow API requests through (Lambda handles auth)
+
+          // API requests go straight to the Lambda (it does its own auth)
           if (uri.startsWith('/api/')) {
             return request;
           }
-          
-          // Check for session cookie
+
+          // The login page itself must always be reachable
+          if (uri === '/login.html') {
+            return request;
+          }
+
+          // Everything else needs a VALID (signed, non-expired) session cookie
           var sessionCookie = cookies['pz_session'];
-          if (sessionCookie && sessionCookie.value) {
-            // Cookie exists, allow through
+          if (sessionCookie && verifyToken(sessionCookie.value)) {
             return request;
           }
-          
-          // No session - redirect to login page
-          // But allow login.html itself
-          if (uri === '/login.html' || uri.startsWith('/api/')) {
-            return request;
-          }
-          
-          // Redirect to login
+
+          // No valid session -> redirect to login
           return {
             statusCode: 302,
             statusDescription: 'Found',
@@ -303,13 +337,15 @@ Resources:
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # CachingDisabled
             OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # AllViewerExceptHostHeader
         CustomErrorResponses:
+          # Serve the public login page (never the protected app) on S3
+          # 403/404 so missing objects can't leak the app content.
           - ErrorCode: 403
             ResponseCode: 200
-            ResponsePagePath: /index.html
+            ResponsePagePath: /login.html
             ErrorCachingMinTTL: 10
           - ErrorCode: 404
             ResponseCode: 200
-            ResponsePagePath: /index.html
+            ResponsePagePath: /login.html
             ErrorCachingMinTTL: 10
         PriceClass: PriceClass_100
         HttpVersion: http2and3

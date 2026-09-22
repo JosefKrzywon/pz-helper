@@ -3,8 +3,8 @@
 A detailed reference for deploying, operating, and tearing down the PZ Skill Books
 AWS environment.
 
-Last updated: 2026-09-21
-Version: 1.1
+Last updated: 2026-09-22
+Version: 1.2
 
 ---
 
@@ -15,8 +15,8 @@ Amazon S3 through CloudFront, and whose API is served by a single AWS Lambda
 function exposed via a Lambda Function URL. Persistent data lives in two
 DynamoDB tables (Users and Progress). Authentication in the AWS version is
 **cookie-based session auth**: the Lambda issues a signed session cookie on
-login, and a CloudFront Function gates access to the site by checking for that
-cookie.
+login, and a CloudFront Function gates access to the site by verifying that
+cookie's HMAC signature (not just its presence) before serving any page.
 
 Almost everything is provisioned by a single CloudFormation stack
 (`aws/stack.yaml`). A few things are handled outside the stack — the artifact
@@ -598,3 +598,29 @@ aws cloudformation describe-stacks --stack-name pz-helper --region $REGION \
 | `UsersTableName` | DynamoDB table for user accounts (auth data) |
 | `ProgressTableName` | DynamoDB table for saved progress |
 | `CloudFrontDistributionId` | Used for cache invalidations |
+
+---
+
+## Changelog
+
+### 1.2 (2026-09-22)
+
+- **Security fix:** the CloudFront Function now verifies the session cookie's
+  HMAC signature and expiry instead of only checking that a cookie exists.
+  Forged or empty cookies no longer grant access to protected pages.
+- **Security fix:** `CustomErrorResponses` now serve the public `login.html`
+  on S3 403/404 instead of the protected `index.html`, so missing objects
+  can't leak the app.
+- **Admin bootstrap:** the API Lambda now creates the initial admin user
+  automatically on first login (from `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`),
+  so a fresh deploy no longer leaves an empty users table.
+- **New:** `reset-password.sh` to reset or create a user's password directly
+  in DynamoDB (account owner only).
+- **Deploy fixes:** `deploy.sh` now generates and persists a `SessionSecret`,
+  falls back to `python3` for packaging when `zip` is absent, and also uploads
+  `login.html` from `aws/website/`.
+
+### 1.1 (2026-09-21)
+
+- Documentation restructure, cost protection (budget alerts + auto-disable),
+  Lambda concurrency limit.

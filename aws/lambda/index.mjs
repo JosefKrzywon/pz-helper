@@ -22,6 +22,7 @@ const USERS_TABLE = process.env.USERS_TABLE;
 const PROGRESS_TABLE = process.env.PROGRESS_TABLE;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 
 // ============================================================
 // HELPERS
@@ -112,13 +113,42 @@ function getUserIdHash(username) {
 // HANDLERS
 // ============================================================
 
+// Create the initial admin user if the Users table has no entry for it yet.
+// Idempotent: uses a conditional put so concurrent logins can't duplicate it.
+async function ensureAdminUser() {
+  try {
+    await db.send(new PutCommand({
+      TableName: USERS_TABLE,
+      Item: {
+        username: ADMIN_USERNAME,
+        passwordHash: ADMIN_PASSWORD_HASH,
+        isAdmin: true,
+        createdAt: new Date().toISOString(),
+      },
+      ConditionExpression: 'attribute_not_exists(username)',
+    }));
+  } catch (e) {
+    // ConditionalCheckFailedException = user already exists -> fine
+    if (e.name !== 'ConditionalCheckFailedException') {
+      console.error('ensureAdminUser failed:', e);
+    }
+  }
+}
+
 async function handleLogin(body) {
   const { username, password } = JSON.parse(body || '{}');
   
   if (!username || !password) {
     return response(400, { error: 'Username and password required' });
   }
-  
+
+  // Bootstrap: if the initial admin user doesn't exist yet, create it from
+  // the ADMIN_USERNAME / ADMIN_PASSWORD_HASH env vars set at deploy time.
+  // This lets the very first login succeed on a fresh, empty Users table.
+  if (username === ADMIN_USERNAME && ADMIN_PASSWORD_HASH) {
+    await ensureAdminUser();
+  }
+
   // Get user from DB
   const result = await db.send(new GetCommand({
     TableName: USERS_TABLE,
