@@ -162,7 +162,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${BucketPrefix}-api'
       Description: 'Zomboid Helper API (Login, Sync, Admin)'
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Handler: index.handler
       Timeout: 10
       MemorySize: 128
@@ -481,7 +481,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${BucketPrefix}-budget-handler'
       Description: 'Disables CloudFront distribution when budget threshold is exceeded'
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Handler: index.handler
       Timeout: 30
       MemorySize: 128

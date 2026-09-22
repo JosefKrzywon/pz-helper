@@ -610,6 +610,11 @@ aws cloudformation describe-stacks --stack-name pz-helper --region $REGION \
 
 ## Changelog
 
+### 1.6.1 (2026-09-22)
+
+- **Lambda runtime upgrade:** updated both Lambda functions from Node.js 20.x
+  to Node.js 22.x (Node 20 reached end-of-life on 2026-04-30).
+
 ### 1.6 (2026-09-22)
 
 - **Recipe Magazines tab:** a fourth tab tracks all 84 recipe magazines
