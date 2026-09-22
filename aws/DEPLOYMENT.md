@@ -4,7 +4,7 @@ A detailed reference for deploying, operating, and tearing down the PZ Skill Boo
 AWS environment.
 
 Last updated: 2026-09-22
-Version: 1.5
+Version: 1.6
 
 ---
 
@@ -602,6 +602,17 @@ aws cloudformation describe-stacks --stack-name pz-helper --region $REGION \
 ---
 
 ## Changelog
+
+### 1.6 (2026-09-22)
+
+- **Recipe Magazines tab:** a fourth tab tracks all 84 recipe magazines
+  (Build 42.19), grouped by category with a By Category / By Name sort, showing
+  the recipes each magazine unlocks, a found checkbox, a PZ Wiki link, and its
+  own progress bar. Recipe magazines unlock recipes but grant no skill XP.
+- **Emergency frequency:** a field under the title stores the run's random
+  emergency broadcast frequency (Set/Change button), shown large; synced to the
+  cloud so it is available on any device.
+- **Renamed** the app from "Project Zomboid Skill Books" to "Zomboid Helper".
 
 ### 1.5 (2026-09-22)
 
