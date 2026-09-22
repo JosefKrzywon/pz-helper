@@ -643,6 +643,41 @@ EOF
     fi
 }
 
+# When an existing config was loaded, show the settings and let the user
+# confirm them or re-run the setup wizard (e.g. to add/remove a custom domain).
+# Only used in the interactive deploy path.
+confirm_or_reconfigure() {
+    # If no config existed, first_time_setup already ran inside load_config.
+    [ ! -f "$CONFIG_FILE" ] && return 0
+
+    echo ""
+    header "Current Settings"
+    echo "  Region:   $REGION"
+    echo "  Username: $USERNAME"
+    echo "  Prefix:   $BUCKET_PREFIX"
+    if [ "$USE_CUSTOM_DOMAIN" == "true" ]; then
+        echo "  Domain:   $DOMAIN_NAME"
+    else
+        echo "  Domain:   (none - CloudFront URL)"
+    fi
+    echo "  Budget:   \$${BUDGET_LIMIT}/month"
+    echo ""
+    read -p "Use these settings? [Y/n] (n = reconfigure) " use_it
+    if [ "$use_it" == "n" ] || [ "$use_it" == "N" ]; then
+        first_time_setup
+        source "$CONFIG_FILE"
+        # Re-derive values after reconfiguration
+        STACK_NAME="${BUCKET_PREFIX}"
+        ARTIFACT_BUCKET="${BUCKET_PREFIX}-artifacts-${ACCOUNT_ID}"
+        WEBSITE_BUCKET="${BUCKET_PREFIX}-website-${ACCOUNT_ID}"
+        if [ -n "$DOMAIN_NAME" ] && [ -n "$HOSTED_ZONE_ID" ]; then
+            USE_CUSTOM_DOMAIN=true
+        else
+            USE_CUSTOM_DOMAIN=false
+        fi
+    fi
+}
+
 # ============================================================
 # PREREQUISITE CHECKS (quick version for subsequent runs)
 # ============================================================
@@ -1245,6 +1280,7 @@ case "${1:-}" in
         ;;
     "")
         load_config  # This triggers first_time_setup if no config exists
+        confirm_or_reconfigure  # show loaded settings, allow reconfigure
         check_existing_resources
         
         header "Zomboid Helper - Deployment"
