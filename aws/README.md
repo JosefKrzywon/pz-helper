@@ -32,6 +32,58 @@ If you already have a domain elsewhere (Namecheap, GoDaddy, etc.), you can eithe
 
 ---
 
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Internet
+        User[👤 Browser]
+    end
+
+    subgraph AWS Cloud
+        subgraph Edge["CloudFront (CDN)"]
+            CF[CloudFront Distribution]
+            AuthFn[Auth Function]
+        end
+
+        subgraph Storage
+            S3[(S3 Bucket<br/>HTML/CSS/JS)]
+            DDB[(DynamoDB<br/>Users + Progress)]
+        end
+
+        subgraph Compute
+            Lambda[Lambda API<br/>Login/Sync/Admin]
+        end
+
+        subgraph DNS["Route53 (optional)"]
+            R53[DNS Record]
+        end
+
+        subgraph Monitoring
+            Budget[AWS Budget]
+            SNS[SNS Alerts]
+        end
+    end
+
+    User -->|HTTPS| CF
+    CF -->|Static files| S3
+    CF -->|/api/*| Lambda
+    CF -.->|Auth check| AuthFn
+    Lambda -->|Read/Write| DDB
+    R53 -.->|zomboid.domain.com| CF
+    Budget -->|100% threshold| SNS
+    SNS -->|Auto-disable| CF
+```
+
+**Request flow:**
+1. User opens the website → CloudFront
+2. Auth Function checks session cookie → valid? serve page : redirect to login
+3. Static files (HTML/JS) served from S3
+4. API calls (`/api/*`) routed to Lambda
+5. Lambda reads/writes user data in DynamoDB
+
+---
+
 ## Prerequisites
 
 ### 1. AWS Account
