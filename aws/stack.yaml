@@ -264,6 +264,11 @@ Resources:
             return request;
           }
 
+          // robots.txt must be publicly accessible for search engines
+          if (uri === '/robots.txt') {
+            return request;
+          }
+
           // Everything else needs a VALID (signed, non-expired) session cookie
           var sessionCookie = cookies['pz_session'];
           if (sessionCookie && verifyToken(sessionCookie.value)) {
